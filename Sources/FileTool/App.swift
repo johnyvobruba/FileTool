@@ -80,6 +80,7 @@ struct FileToolApp: App {
 
         Settings {
             SettingsView(settings: settings)
+                .id(settings.themeKey)                    // nový profil = překreslit i nastavení
                 .preferredColorScheme(settings.isDark ? .dark : .light)
         }
     }
