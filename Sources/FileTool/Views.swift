@@ -37,7 +37,7 @@ struct Toolbar: View {
     @ObservedObject var settings: FTSettings
 
     private func button(_ symbol: String, _ help: String, active: Bool = false, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { ChromeIcon(symbol: symbol, active: active) }.buttonStyle(.plain).help(help)
+        Button(action: action) { ChromeIcon(symbol: symbol, active: active) }.buttonStyle(.plain).tip(help)
     }
 
     var body: some View {
@@ -71,13 +71,13 @@ struct SettingsButton: View {
         if #available(macOS 14.0, *) {
             SettingsLink { ChromeIcon(symbol: "gearshape") }
                 .buttonStyle(.plain)
-                .help("Nastavení (⌘,)")
+                .tip("Nastavení (⌘,)")
         } else {
             Button {
                 NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
             } label: { ChromeIcon(symbol: "gearshape") }
             .buttonStyle(.plain)
-            .help("Nastavení (⌘,)")
+            .tip("Nastavení (⌘,)")
         }
     }
 }
@@ -117,7 +117,7 @@ struct PanelTabBar: View {
                         .frame(width: 20, height: 18)
                         .background(RoundedRectangle(cornerRadius: 5).fill(UI.card))
                 }
-                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).help("Nová záložka (⌘T)")
+                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).tip("Nová záložka (⌘T)")
             }
             .padding(.horizontal, 6).padding(.vertical, 3)
         }
@@ -156,7 +156,7 @@ struct PanelTabChip: View {
         .foregroundStyle(active ? UI.text : UI.textSecondary)
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
-        .help(tab.dir.path)
+        .tip(tab.dir.path)
     }
 }
 
@@ -235,7 +235,7 @@ struct DriveBar: View {
                     .font(.system(size: 11))
             }
             .menuStyle(.borderlessButton).fixedSize()
-            .help("Výběr disku / místa (⌥⌘\(side == .left ? "1" : "2"))")
+            .tip("Výběr disku / místa (⌥⌘\(side == .left ? "1" : "2"))")
             ServerMenu(tab: tab, side: side, commander: commander)
             if let r = tab.remote {
                 Text(r.session.config.scheme.uppercased() + " · " + r.session.config.dest)
@@ -249,13 +249,13 @@ struct DriveBar: View {
                 Image(systemName: side == .left ? "arrow.left.square" : "arrow.right.square").font(.system(size: 12))
             }
             .buttonStyle(.plain).foregroundStyle(UI.textSecondary)
-            .help("Otevřít stejnou složku jako vedlejší panel")
+            .tip("Otevřít stejnou složku jako vedlejší panel")
             Button { if tab.remote != nil { tab.goRemote("/") } else { tab.go(URL(fileURLWithPath: "/")) } } label: { Text("/").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
-                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).help("Kořen svazku")
+                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).tip("Kořen svazku")
             Button { if let r = tab.remote { tab.goRemote(r.session.home) } else { tab.go(FileManager.default.homeDirectoryForCurrentUser) } } label: { Text("~").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
-                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).help("Domovská složka")
+                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).tip("Domovská složka")
             Button { tab.up() } label: { Text("..").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
-                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).help("Nadřazená složka")
+                .buttonStyle(.plain).foregroundStyle(UI.textSecondary).tip("Nadřazená složka")
         }
         .padding(.horizontal, 8).frame(height: 24)
         .background(UI.chrome)
@@ -410,6 +410,6 @@ struct ServerMenu: View {
                 .font(.system(size: 11))
         }
         .menuStyle(.borderlessButton).fixedSize()
-        .help("SFTP / SCP / FTP")
+        .tip("SFTP / SCP / FTP")
     }
 }

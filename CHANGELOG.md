@@ -3,6 +3,10 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.3.2
+
+- **Popisky ikon:** po najetí myší na ikonu se po chvilce ukáže bublina s popisem.
+
 ## 0.3.1
 
 - **Ozubené kolečko v horní liště** otevře Nastavení (⌘,), stejně jako v SSHTool.

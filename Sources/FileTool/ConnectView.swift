@@ -90,8 +90,8 @@ struct ConnectView: View {
                 }
                 .frame(width: 210)
                 HStack {
-                    Button { model.new() } label: { Image(systemName: "plus") }.help("Nový server")
-                    Button { model.delete() } label: { Image(systemName: "minus") }.help("Smazat uložený server").disabled(model.selected == nil)
+                    Button { model.new() } label: { Image(systemName: "plus") }.tip("Nový server")
+                    Button { model.delete() } label: { Image(systemName: "minus") }.tip("Smazat uložený server").disabled(model.selected == nil)
                 }
             }
             .padding(12)
