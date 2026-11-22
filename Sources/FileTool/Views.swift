@@ -6,15 +6,24 @@ import AppKit
 struct MainView: View {
     @ObservedObject var commander: Commander
     @ObservedObject var settings: FTSettings
+    /// Podíl levého panelu (0,5 = půl na půl); táhnutím za dělicí čáru, dvojklik vrátí na polovinu.
+    @AppStorage("panelSplit") private var split: Double = 0.5
 
     var body: some View {
         VStack(spacing: 0) {
             Toolbar(commander: commander, settings: settings)
             Rectangle().fill(UI.border).frame(height: 1)
-            HStack(spacing: 0) {
-                PanelView(panel: commander.left, side: .left, commander: commander, settings: settings)
-                Rectangle().fill(UI.border).frame(width: 1)
-                PanelView(panel: commander.right, side: .right, commander: commander, settings: settings)
+            GeometryReader { g in
+                let w = g.size.width
+                let minW = min(280, w / 2 - 20)
+                let lw = min(max(w * CGFloat(split), minW), w - minW)
+                HStack(spacing: 0) {
+                    PanelView(panel: commander.left, side: .left, commander: commander, settings: settings)
+                        .frame(width: max(0, lw - 0.5))
+                    SplitHandle(width: w, ratio: $split)
+                    PanelView(panel: commander.right, side: .right, commander: commander, settings: settings)
+                }
+                .coordinateSpace(name: "panels")
             }
             if !commander.ops.isEmpty {
                 Rectangle().fill(UI.border).frame(height: 1)
@@ -27,6 +36,30 @@ struct MainView: View {
         .background(UI.app)
         .sheet(item: $commander.output) { out in OutputSheet(out: out) { commander.output = nil } }
         .onAppear { DispatchQueue.main.async { commander.focus(commander.activeSide) } }
+    }
+}
+
+/// Dělicí čára mezi panely: viditelná 1 pt, úchop 9 pt, kurzor ↔.
+struct SplitHandle: View {
+    let width: CGFloat
+    @Binding var ratio: Double
+
+    var body: some View {
+        Rectangle().fill(UI.border).frame(width: 1)
+            .overlay(
+                Rectangle().fill(SwiftUI.Color.white.opacity(0.001)).frame(width: 9)
+                    .onHover { inside in
+                        MainActor.assumeIsolated { if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
+                    }
+                    .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .named("panels"))
+                        .onChanged { v in
+                            guard width > 0 else { return }
+                            ratio = min(max(Double(v.location.x / width), 0.1), 0.9)
+                        })
+                    .onTapGesture(count: 2) { ratio = 0.5 }
+                    .tip("Táhnutím změníš šířku panelů, dvojklikem je rozdělíš na polovinu")
+            )
+            .zIndex(1)
     }
 }
 
@@ -397,8 +430,15 @@ struct ServerMenu: View {
 
     var body: some View {
         Menu {
-            ForEach(store.configs) { c in
+            ForEach(store.configs.filter { $0.group == nil }) { c in
                 Button { tab.connect(c); commander.focus(side) } label: { Label(c.title, systemImage: "server.rack") }
+            }
+            ForEach(Array(Set(store.configs.compactMap(\.group))).sorted(), id: \.self) { g in
+                Menu(g) {
+                    ForEach(store.configs.filter { $0.group == g }) { c in
+                        Button { tab.connect(c); commander.focus(side) } label: { Label(c.title, systemImage: "server.rack") }
+                    }
+                }
             }
             if !store.configs.isEmpty { Divider() }
             Button("Připojit k serveru… (⌘K)") { commander.focus(side); commander.connectDialog() }

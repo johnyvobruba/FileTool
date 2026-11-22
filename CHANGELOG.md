@@ -3,6 +3,12 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.4.0
+
+- **Import serverů:** v Nastavení → Servery jedním tlačítkem načteš servery ze SSHTool (SSH jako SFTP/SCP, FTP/FTPS; RDP a telnet se vynechají), nebo importuješ JSON (formát FileTool i SSHTool). Export bez hesel a vzor JSON pro kolegy. Hesla se nikdy neimportují.
+- **Skupiny serverů:** v nabídce Server jsou servery rozdělené do složek podle skupin ze SSHTool / JSON.
+- **Nastavitelná šířka panelů:** táhni za dělicí čáru mezi panely, dvojklik vrátí rozdělení na polovinu. Šířka se pamatuje.
+
 ## 0.3.3
 
 - **Nové okno Nastavení** ve stylu SSHTool: postranní navigace (Obecné, Vzhled, Servery, Klávesové zkratky, O aplikaci), karty profilů s náhledem seznamu souborů, správa uložených serverů, přehled zkratek.

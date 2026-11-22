@@ -493,7 +493,7 @@ struct SettingsServersPane: View {
                 SKRow("Zatím žádné uložené připojení", help: "Přidáš ho v dialogu Připojit k serveru (⌘K).", first: true) { EmptyView() }
             }
             ForEach(Array(store.configs.enumerated()), id: \.element.id) { i, c in
-                SKRow(c.title, help: "\(c.scheme)://\(c.dest):\(c.port)" + (c.savePassword ? " · heslo v Klíčence" : ""), first: i == 0) {
+                SKRow(c.title, help: (c.group.map { $0 + " · " } ?? "") + "\(c.scheme)://\(c.dest):\(c.port)" + (c.savePassword ? " · heslo v Klíčence" : ""), first: i == 0) {
                     Button("Smazat") { store.remove(c) }.buttonStyle(SKButton(kind: .danger))
                         .tip("Smaže uložené připojení i jeho heslo z Klíčenky")
                 }
@@ -503,6 +503,35 @@ struct SettingsServersPane: View {
             Button { Commander.shared.connectDialog() } label: { Label("Přidat nebo upravit…", systemImage: "plus") }
                 .buttonStyle(SKButton(kind: .primary))
             Spacer()
+        }
+        SKSection("Import a export", subtitle: "Hesla se nikdy neimportují ani neexportují. Duplicity (protokol + host + port + uživatel) se přeskočí.") {
+            SKRow("Servery ze SSHTool", help: RemoteImport.sshToolAvailable
+                  ? "Načte SSH a FTP servery uložené v SSHTool (RDP, telnet a sériové linky vynechá). SSH servery se přidají jako SFTP, nebo SCP podle nastavení prohlížeče souborů."
+                  : "SSHTool na tomto Macu nemá uložené servery.", first: true) {
+                Button("Importovat ze SSHTool") { RemoteImport.importFromSSHTool() }
+                    .buttonStyle(SKButton(kind: .primary)).disabled(!RemoteImport.sshToolAvailable)
+            }
+            SKRow("Importovat ze souboru (JSON)", help: "Formát FileTool i SSHTool (export i sessions.json), lze vybrat víc souborů.") {
+                Button("Importovat…") { RemoteImport.importPanel() }.buttonStyle(SKButton())
+            }
+            SKRow("Exportovat servery", help: "Bez hesel – bezpečné ke sdílení s kolegy.") {
+                Button("Exportovat…") { RemoteImport.exportPanel() }.buttonStyle(SKButton()).disabled(store.configs.isEmpty)
+            }
+        }
+        SKSection("Vzor JSON pro kolegy", subtitle: "Pole: name, proto (sftp / scp / ftp), host, port, user, group, path, ftpTLS (explicit / implicit / \"\"). Adresy ve vzoru jsou z dokumentačních rozsahů (RFC 5737).") {
+            HStack {
+                Button { RemoteImport.copyTemplate() } label: { Label("Kopírovat vzor", systemImage: "doc.on.doc") }.buttonStyle(SKButton())
+                Spacer()
+            }
+            .padding(.horizontal, SK.hPad).padding(.vertical, 10)
+            Text(RemoteImport.templateJSON)
+                .font(.system(size: 11.5, design: .monospaced)).foregroundStyle(UI.text)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 8).fill(UI.list))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(UI.border, lineWidth: 1))
+                .padding(.horizontal, SK.hPad).padding(.bottom, 14)
         }
         SKSection("Protokoly") {
             SKRow("SFTP", help: "Systémové ssh: klíče, agent i ~/.ssh/config. Neznámý klíč serveru se před uložením ukáže k potvrzení.", first: true) { EmptyView() }

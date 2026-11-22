@@ -68,6 +68,7 @@ struct RemoteConfig: Codable, Identifiable, Hashable {
     var ftpTLS = "explicit"     // "" | explicit | implicit
     var savePassword = false
     var path = ""               // počáteční složka (prázdné = domovská)
+    var group: String? = nil    // složka v nabídce Server (import ze SSHTool / JSON)
 
     var title: String { name.isEmpty ? (user.isEmpty ? host : "\(user)@\(host)") : name }
     var dest: String { user.isEmpty ? host : "\(user)@\(host)" }
