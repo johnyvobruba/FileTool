@@ -57,9 +57,28 @@ struct Toolbar: View {
             Spacer()
             button("terminal", "Otevřít Terminál ve složce aktivního panelu") { commander.openTerminalHere() }
             button("magnifyingglass", "Zobrazit ve Finderu") { commander.revealInFinder() }
+            Rectangle().fill(UI.border).frame(width: 1, height: 16).padding(.horizontal, 4)
+            SettingsButton()
         }
         .padding(.horizontal, 8).frame(height: 30)
         .background(UI.chrome)
+    }
+}
+
+/// Ozubené kolečko v horní liště – otevře Nastavení (⌘,), stejně jako v SSHTool.
+struct SettingsButton: View {
+    var body: some View {
+        if #available(macOS 14.0, *) {
+            SettingsLink { ChromeIcon(symbol: "gearshape") }
+                .buttonStyle(.plain)
+                .help("Nastavení (⌘,)")
+        } else {
+            Button {
+                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+            } label: { ChromeIcon(symbol: "gearshape") }
+            .buttonStyle(.plain)
+            .help("Nastavení (⌘,)")
+        }
     }
 }
 

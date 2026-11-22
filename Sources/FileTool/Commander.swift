@@ -275,7 +275,7 @@ final class Commander: ObservableObject {
                 if password.isEmpty { try ArchiveIO.create(out, from: dir, names: names, format: format, cancel: cancel) }
                 else { try ArchiveIO.createEncrypted(out, from: dir, names: names, format: format, password: password, cancel: cancel) }
             } catch { errs.append(error.localizedDescription) }
-            await MainActor.run { self.finish(op, errs) }
+            await MainActor.run { [errs] in self.finish(op, errs) }
         }
     }
 
@@ -398,7 +398,7 @@ final class Commander: ObservableObject {
                         }
                     }
                 } catch { errs.append(error.localizedDescription) }
-                await MainActor.run { self.finish(op, errs) }
+                await MainActor.run { [errs] in self.finish(op, errs) }
             }
             return true
         }
@@ -443,7 +443,7 @@ final class Commander: ObservableObject {
             let total = FileOps.totalSize(srcs)
             await MainActor.run { op.total = total }
             let errs = FileOps.transfer(srcs, to: dir, move: move, conflict: policy, cancel: cancel, progress: progress)
-            await MainActor.run { self.finish(op, errs) }
+            await MainActor.run { [errs] in self.finish(op, errs) }
         }
     }
 
@@ -458,7 +458,7 @@ final class Commander: ObservableObject {
         Task.detached(priority: .userInitiated) {
             var errs: [String] = []
             do { try ArchiveIO.addToZip(zip, inner: inner, sources: srcs, cancel: cancel) } catch { errs.append(error.localizedDescription) }
-            await MainActor.run { self.finish(op, errs) }
+            await MainActor.run { [errs] in self.finish(op, errs) }
         }
     }
 
@@ -483,7 +483,7 @@ final class Commander: ObservableObject {
             let total = FileOps.totalSize(srcs)
             await MainActor.run { op.total = total }
             let errs = FileOps.transfer(srcs, to: dir, move: move, conflict: policy, cancel: cancel, progress: progress)
-            await MainActor.run { self.finish(op, errs) }
+            await MainActor.run { [errs] in self.finish(op, errs) }
         }
     }
 
@@ -515,7 +515,7 @@ final class Commander: ObservableObject {
             Task.detached(priority: .userInitiated) {
                 var errs: [String] = []
                 do { try ArchiveIO.deleteFromZip(file, paths: paths, dirs: dirs) } catch { errs.append(error.localizedDescription) }
-                await MainActor.run { self.finish(op, errs) }
+                await MainActor.run { [errs] in self.finish(op, errs) }
             }
             return
         }
@@ -537,7 +537,7 @@ final class Commander: ObservableObject {
         let cancel = op.cancel, progress = op.progress
         Task.detached(priority: .userInitiated) {
             let errs = FileOps.delete(urls, trash: trash, cancel: cancel, progress: progress)
-            await MainActor.run { self.finish(op, errs) }
+            await MainActor.run { [errs] in self.finish(op, errs) }
         }
     }
 

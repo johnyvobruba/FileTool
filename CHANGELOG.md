@@ -3,6 +3,11 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.3.1
+
+- **Ozubené kolečko v horní liště** otevře Nastavení (⌘,), stejně jako v SSHTool.
+- Úklid varování kompilátoru (příprava na Swift 6).
+
 ## 0.3.0
 
 - **Servery v panelu – SFTP, SCP a FTP/FTPS** (⌘K připojit, ⇧⌘K odpojit, nabídka „Server“ nad panelem):
