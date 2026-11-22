@@ -20,6 +20,13 @@ final class SidebarModel: ObservableObject {
     @Published private(set) var volumes: [SidebarVolume] = []
     @Published private(set) var favorites: [URL] = []
     @Published var ejecting: URL?
+    /// Sbalené složky serverů (cesta skupiny, např. „Zákazník A/Praha“).
+    @Published private(set) var collapsed: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "sidebarCollapsed") ?? [])
+
+    func toggleFolder(_ path: String) {
+        if collapsed.contains(path) { collapsed.remove(path) } else { collapsed.insert(path) }
+        UserDefaults.standard.set(Array(collapsed), forKey: "sidebarCollapsed")
+    }
 
     private init() {
         let saved = UserDefaults.standard.stringArray(forKey: "sidebarFavorites")
@@ -152,12 +159,34 @@ struct SidebarView: View {
                 }
                 if !remotes.configs.isEmpty {
                     header("Servery")
-                    ForEach(remotes.configs) { c in
-                        let on = tab.remote?.session.config.id == c.id
-                        row(symbol: "server.rack", title: c.title, detail: c.proto.uppercased(), current: on) {
-                            commander.tab.connect(c); commander.focus(commander.activeSide)
+                    ForEach(ServerTree.rows(remotes.configs, collapsed: model.collapsed)) { r in
+                        switch r.kind {
+                        case .folder(let path, let name, let count):
+                            let open = !model.collapsed.contains(path)
+                            Button { model.toggleFolder(path) } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
+                                        .rotationEffect(.degrees(open ? 90 : 0)).frame(width: 10)
+                                        .foregroundStyle(UI.textTertiary)
+                                    Image(systemName: open ? "folder" : "folder.fill").font(.system(size: 11.5))
+                                        .foregroundStyle(UI.accent)
+                                    Text(name).font(.system(size: 12, weight: .semibold)).foregroundStyle(UI.textSecondary).lineLimit(1)
+                                    Text("\(count)").font(.system(size: 10)).foregroundStyle(UI.textTertiary)
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.leading, 8 + CGFloat(r.depth) * 14).padding(.trailing, 8).frame(height: 24)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .tip(path)
+                        case .server(let c):
+                            let on = tab.remote?.session.config.id == c.id
+                            row(symbol: "server.rack", title: c.title, detail: c.proto.uppercased(), current: on) {
+                                commander.tab.connect(c); commander.focus(commander.activeSide)
+                            }
+                            .padding(.leading, CGFloat(r.depth) * 14 + (r.depth > 0 ? 10 : 0))
+                            .tip("\(c.scheme)://\(c.dest):\(c.port)")
                         }
-                        .tip("\(c.scheme)://\(c.dest):\(c.port)")
                     }
                 }
             }
@@ -223,5 +252,39 @@ struct SidebarView: View {
         if fm.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path == u.path { return "arrow.down.circle" }
         if u.path == "/Applications" { return "square.grid.2x2" }
         return "folder"
+    }
+}
+
+/// Servery ve stromu složek podle skupiny („Zákazník A/Praha“ = podsložka), jako v SSHTool.
+enum ServerTree {
+    enum Kind { case folder(path: String, name: String, count: Int), server(RemoteConfig) }
+    struct Row: Identifiable {
+        let id: String
+        let depth: Int
+        let kind: Kind
+    }
+
+    static func parts(_ c: RemoteConfig) -> [String] {
+        (c.group ?? "").split(separator: "/").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+
+    /// Viditelné řádky: složky (abecedně) před servery, obsah sbalených složek se vynechá.
+    static func rows(_ configs: [RemoteConfig], collapsed: Set<String>) -> [Row] {
+        var out: [Row] = []
+        func walk(_ prefix: [String]) {
+            let inHere = configs.filter { Array(parts($0).prefix(prefix.count)) == prefix }
+            let sub = Set(inHere.compactMap { c -> String? in let p = parts(c); return p.count > prefix.count ? p[prefix.count] : nil })
+            for name in sub.sorted(by: { $0.localizedStandardCompare($1) == .orderedAscending }) {
+                let path = (prefix + [name]).joined(separator: "/")
+                let count = inHere.filter { Array(parts($0).prefix(prefix.count + 1)) == prefix + [name] }.count
+                out.append(Row(id: "f:" + path, depth: prefix.count, kind: .folder(path: path, name: name, count: count)))
+                if !collapsed.contains(path) { walk(prefix + [name]) }
+            }
+            for c in inHere where parts(c) == prefix {
+                out.append(Row(id: "s:" + c.id.uuidString, depth: prefix.count, kind: .server(c)))
+            }
+        }
+        walk([])
+        return out
     }
 }

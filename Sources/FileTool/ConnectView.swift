@@ -99,6 +99,9 @@ struct ConnectView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Form {
                     TextField("Název", text: $model.draft.name)
+                    TextField("Složka", text: Binding(get: { model.draft.group ?? "" },
+                                                      set: { model.draft.group = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }),
+                              prompt: Text("např. Zákazník A/Praha"))
                     Picker("Protokol", selection: Binding(get: { model.draft.proto }, set: { model.protoChanged($0) })) {
                         Text("SFTP").tag("sftp")
                         Text("SCP (zařízení bez SFTP)").tag("scp")

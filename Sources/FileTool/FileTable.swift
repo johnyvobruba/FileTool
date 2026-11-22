@@ -111,10 +111,19 @@ struct FileTable: NSViewRepresentable {
         t.rowHeight = CGFloat(fontSize) + 7
         updateHeaders(t)
         if c.shownTab != tab.id || c.shownVersion != tab.version || c.shownTheme != ThemeStore.ui.id {
+            let sameList = c.shownTab == tab.id && c.shownTheme == ThemeStore.ui.id && t.numberOfRows == tab.items.count
             c.shownTab = tab.id
             c.shownVersion = tab.version
             c.shownTheme = ThemeStore.ui.id
-            t.reloadData()
+            // reloadData při allowsEmptySelection = false umí na okamžik vybrat 1. řádek → kurzor by skočil nahoru.
+            // Při označení (stejný počet řádků) stačí překreslit obsah řádků – výběr i posun zůstanou.
+            c.reloading = true
+            if sameList, t.numberOfRows > 0 {
+                t.reloadData(forRowIndexes: IndexSet(integersIn: 0..<t.numberOfRows), columnIndexes: IndexSet(integersIn: 0..<t.numberOfColumns))
+            } else {
+                t.reloadData()
+            }
+            c.reloading = false
         }
         if tab.items.indices.contains(tab.cursor), t.selectedRow != tab.cursor {
             t.selectRowIndexes(IndexSet(integer: tab.cursor), byExtendingSelection: false)
@@ -139,6 +148,7 @@ struct FileTable: NSViewRepresentable {
         var shownTab: UUID?
         var shownVersion = -1
         var shownTheme = ""
+        var reloading = false
         private var typed = ""
         private var typedAt = Date.distantPast
 
@@ -196,7 +206,7 @@ struct FileTable: NSViewRepresentable {
         }
 
         func tableViewSelectionDidChange(_ n: Notification) {
-            guard let t = table, t.selectedRow >= 0, t.selectedRow != tab.cursor else { return }
+            guard !reloading, let t = table, t.selectedRow >= 0, t.selectedRow != tab.cursor else { return }
             tab.cursor = t.selectedRow
         }
 

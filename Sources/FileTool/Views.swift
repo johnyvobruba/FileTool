@@ -444,16 +444,7 @@ struct ServerMenu: View {
 
     var body: some View {
         Menu {
-            ForEach(store.configs.filter { $0.group == nil }) { c in
-                Button { tab.connect(c); commander.focus(side) } label: { Label(c.title, systemImage: "server.rack") }
-            }
-            ForEach(Array(Set(store.configs.compactMap(\.group))).sorted(), id: \.self) { g in
-                Menu(g) {
-                    ForEach(store.configs.filter { $0.group == g }) { c in
-                        Button { tab.connect(c); commander.focus(side) } label: { Label(c.title, systemImage: "server.rack") }
-                    }
-                }
-            }
+            menuLevel([])
             if !store.configs.isEmpty { Divider() }
             Button("Připojit k serveru… (⌘K)") { commander.focus(side); commander.connectDialog() }
             if tab.remote != nil {
@@ -465,5 +456,21 @@ struct ServerMenu: View {
         }
         .menuStyle(.borderlessButton).fixedSize()
         .tip("SFTP / SCP / FTP")
+    }
+
+    /// Jedna úroveň stromu: podsložky jako podnabídky, pak servery.
+    private func menuLevel(_ prefix: [String]) -> AnyView {
+        let inHere = store.configs.filter { Array(ServerTree.parts($0).prefix(prefix.count)) == prefix }
+        let subs = Set(inHere.compactMap { c -> String? in let p = ServerTree.parts(c); return p.count > prefix.count ? p[prefix.count] : nil })
+            .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        let here = inHere.filter { ServerTree.parts($0) == prefix }
+        return AnyView(Group {
+            ForEach(subs, id: \.self) { name in
+                Menu { menuLevel(prefix + [name]) } label: { Label(name, systemImage: "folder") }
+            }
+            ForEach(here) { c in
+                Button { tab.connect(c); commander.focus(side) } label: { Label(c.title, systemImage: "server.rack") }
+            }
+        })
     }
 }
