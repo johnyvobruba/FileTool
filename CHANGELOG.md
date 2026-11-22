@@ -3,6 +3,17 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.7.0
+
+- **Úklid jako samostatný nástroj** (⇧⌘U, ✨ v liště) ve stylu CleanMyMac – vlevo moduly:
+  - **Chytrá kontrola** – jedno tlačítko prohledá systémový odpad, soubory nad 500 MB a zbytky po smazaných aplikacích; výsledky na kartách, odpad lze rovnou vyčistit;
+  - **Systémový odpad** – kategorie se zaškrtávátky a velikostí (mezipaměti, logy, uložený stav oken, Xcode, vývojářské mezipaměti, stažené instalátory, aktualizace iOS, přílohy Mailu, zálohy iPhonu, Koš), rozbalitelné po položkách; mezipaměti běžících aplikací se předem nezaškrtávají;
+  - **Velké a staré soubory** – filtry podle typu (video, archivy, obrazy disků, dokumenty, hudba) a stáří;
+  - **Odinstalace aplikací** – aplikace s velikostí a datem posledního spuštění; odinstaluje i související data (Application Support, Caches, Preferences, Containers, LaunchAgents…); hledání zbytků po už smazaných aplikacích;
+  - **Mapa disku** – barevná mapa (treemap), kliknutím do složky, drobečková navigace, seznam s podíly;
+  - **Duplicity** – stejný obsah (velikost → SHA-256), automatický výběr „ponechat nejnovější / nejstarší“, v každé skupině vždy zůstane jedna kopie.
+  - Vše do Koše po potvrzení (jen vysypání Koše je trvalé). Systémové složky se nenabízejí. Upozornění, když chybí Plný přístup k disku.
+
 ## 0.6.0
 
 - **Úklid disku** (⇧⌘U, ikona v liště) – najde, co zabírá místo:

@@ -101,7 +101,7 @@ struct Toolbar: View {
             Spacer()
             button("terminal", "Otevřít Terminál ve složce aktivního panelu") { commander.openTerminalHere() }
             button("magnifyingglass", "Hledat soubory (⌘F / Alt+F7)") { commander.search() }
-            button("externaldrive.badge.minus", "Úklid disku – velké, staré a nepoužívané soubory (⇧⌘U)") { CleanupWindow.show() }
+            button("sparkles", "Úklid – odpad, velké soubory, odinstalace, mapa disku, duplicity (⇧⌘U)") { CleanupWindow.show() }
             button("arrow.up.forward.app", "Zobrazit ve Finderu (⌥⌘R)") { commander.revealInFinder() }
             Rectangle().fill(UI.border).frame(width: 1, height: 16).padding(.horizontal, 4)
             SettingsButton()
