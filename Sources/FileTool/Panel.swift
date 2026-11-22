@@ -17,6 +17,12 @@ struct RemoteLocation {
     let base: URL
 }
 
+/// Výsledky hledání zobrazené v panelu (skutečné soubory z různých složek).
+struct SearchResults {
+    let title: String
+    var urls: [URL]
+}
+
 /// Jedna záložka panelu: složka, seznam, kurzor, označené položky, historie.
 @MainActor
 final class PanelTab: ObservableObject, Identifiable {
@@ -36,6 +42,8 @@ final class PanelTab: ObservableObject, Identifiable {
     @Published private(set) var opening = false
     /// Panel ukazuje složku na serveru (SFTP/SCP/FTP).
     @Published private(set) var remote: RemoteLocation?
+    /// Panel ukazuje výsledky hledání (⌘F → Zobrazit v aktivním panelu).
+    @Published private(set) var results: SearchResults?
 
     private var back: [URL] = []
     private var forward: [URL] = []
@@ -50,6 +58,7 @@ final class PanelTab: ObservableObject, Identifiable {
     }
 
     var title: String {
+        if let r = results { return "🔍 " + r.title }
         if let r = remote { return "🌐 " + r.session.config.title }
         if let a = archive { return "📦 " + a.file.lastPathComponent }
         return dir.path == "/" ? "/" : (dir.lastPathComponent.isEmpty ? dir.path : dir.lastPathComponent)
@@ -57,6 +66,7 @@ final class PanelTab: ObservableObject, Identifiable {
 
     /// Cesta pro zobrazení (u archivu i vnitřní složka).
     var displayPath: String {
+        if let r = results { return "Výsledky hledání „\(r.title)“ – \(r.urls.count) položek" }
         if let r = remote { return r.session.label + r.path }
         guard let a = archive else { return dir.path }
         return a.file.path + (a.inner.isEmpty ? "" : "/" + a.inner)
@@ -82,6 +92,7 @@ final class PanelTab: ObservableObject, Identifiable {
         if record, target != dir || archive != nil { back.append(dir); forward.removeAll() }
         disconnectRemote()
         archive = nil
+        results = nil
         dir = target
         pathField = target.path
         marked = []
@@ -90,6 +101,7 @@ final class PanelTab: ObservableObject, Identifiable {
     }
 
     func up() {
+        if results != nil { results = nil; pathField = dir.path; marked = []; load(); onNavigate?(); return }
         if var r = remote {
             if r.path == "/" { disconnectRemote(); pathField = dir.path; marked = []; load(); onNavigate?(); return }
             let last = (r.path as NSString).lastPathComponent
@@ -294,9 +306,47 @@ final class PanelTab: ObservableObject, Identifiable {
         }
     }
 
+    // MARK: Výsledky hledání
+
+    func showResults(_ urls: [URL], title: String) {
+        disconnectRemote()
+        archive = nil
+        stopWatching()
+        results = SearchResults(title: title.isEmpty ? "hledání" : title, urls: urls)
+        pathField = displayPath
+        marked = []
+        load(resetCursor: true)
+        onNavigate?()
+    }
+
+    private func loadResults(_ r: SearchResults, select name: String?, resetCursor: Bool) {
+        let keepName = name ?? current?.name
+        let hidden = FTSettings.shared.showHidden
+        let key = sortKey, asc = ascending, ff = FTSettings.shared.foldersFirst
+        let urls = r.urls, d = dir
+        Task.detached(priority: .userInitiated) {
+            let list = urls.filter { FileManager.default.fileExists(atPath: $0.path) }.map { LocalFS.item($0) }
+            await MainActor.run {
+                guard self.results != nil else { return }
+                self.results?.urls = list.map(\.url)               // smazané / přesunuté vypadnou
+                let shown = hidden ? list : list.filter { !$0.isHidden }
+                let all = [FileItem.parent(of: d.appendingPathComponent("_"))] + LocalFS.sort(shown, by: key, ascending: asc, foldersFirst: ff)
+                self.items = all
+                self.error = nil
+                self.pathField = self.displayPath
+                self.marked = self.marked.intersection(Set(all.map(\.url)))
+                if !resetCursor, let n = keepName, let i = all.firstIndex(where: { $0.name == n }) { self.cursor = i }
+                else if resetCursor { self.cursor = 0 }
+                self.cursor = min(self.cursor, max(0, all.count - 1))
+                self.version &+= 1
+            }
+        }
+    }
+
     // MARK: Načtení (mimo hlavní vlákno) a sledování změn
 
     func load(select name: String? = nil, resetCursor: Bool = false) {
+        if let r = results { loadResults(r, select: name, resetCursor: resetCursor); return }
         if let r = remote { loadRemote(r, select: name, resetCursor: resetCursor); return }
         if let a = archive { loadArchive(a, select: name, resetCursor: resetCursor); return }
         let d = dir, hidden = FTSettings.shared.showHidden
@@ -346,7 +396,7 @@ final class PanelTab: ObservableObject, Identifiable {
         version &+= 1
     }
 
-    func refresh() { if remote != nil { load() } else if archive != nil { reloadArchive() } else { load() } }
+    func refresh() { if remote != nil || results != nil { load() } else if archive != nil { reloadArchive() } else { load() } }
 
     func setSort(_ k: SortKey) {
         if sortKey == k { ascending.toggle() } else { sortKey = k; ascending = true }

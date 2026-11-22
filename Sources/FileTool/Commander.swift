@@ -89,6 +89,12 @@ final class Commander: ObservableObject {
     }
     private var placeTarget: PlaceTarget?
 
+    /// ⌘F / ⌥F7 – hledání ve složce aktivního panelu.
+    func search() {
+        let start = tab.remote == nil && tab.archive == nil ? tab.dir : FileManager.default.homeDirectoryForCurrentUser
+        SearchWindow.show(root: start)
+    }
+
     func refreshAll() { left.tab.refresh(); right.tab.refresh() }
 
     /// Tlačítko u panelu: otevřít stejnou složku, jakou má vedlejší panel.
@@ -615,6 +621,7 @@ final class Commander: ObservableObject {
         op.finished = true
         if op.total > 0, errs.isEmpty { op.done = op.total }
         if refresh { left.tab.refresh(); right.tab.refresh() }
+        SidebarModel.shared.reloadVolumes()                       // volné místo po kopírování / mazání
         if !errs.isEmpty {
             alert("\(op.title) – \(errs.count) \(errs.count == 1 ? "chyba" : "chyb")", errs.prefix(15).joined(separator: "\n"))
         }

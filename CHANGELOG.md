@@ -3,6 +3,15 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.5.0
+
+- **Boční panel** (jako Finder / JABKOmmander): Zařízení s volným místem a tlačítkem pro vysunutí, Oblíbené složky (+ přidá složku aktivního panelu, lze sem přetáhnout složku; pravým tlačítkem odebrat / přesunout) a uložené Servery. Kliknutí otevře místo v aktivním panelu. Skrytí tlačítkem v liště nebo ⌃⌘S.
+- **Hledání** (⌘F, Alt+F7, lupa v liště):
+  - název s maskou (`*.log;report` – bez hvězdičky hledá část názvu), volitelně text v souborech (jen textové do 50 MB), skryté soubory;
+  - i uvnitř archivů ZIP, tar.gz, 7z… (názvy);
+  - výsledky průběžně, Enter / dvojklik = přejít na soubor v panelu;
+  - „Zobrazit v aktivním panelu“ – výsledky jako seznam v panelu, funguje na ně F3–F8, označování i přetahování.
+
 ## 0.4.0
 
 - **Import serverů:** v Nastavení → Servery jedním tlačítkem načteš servery ze SSHTool (SSH jako SFTP/SCP, FTP/FTPS; RDP a telnet se vynechají), nebo importuješ JSON (formát FileTool i SSHTool). Export bez hesel a vzor JSON pro kolegy. Hesla se nikdy neimportují.

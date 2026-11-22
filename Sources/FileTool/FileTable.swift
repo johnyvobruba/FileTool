@@ -229,6 +229,7 @@ struct FileTable: NSViewRepresentable {
             case (97, []): commander.transfer(move: true); return true                           // F6
             case (97, [.shift]), (120, []): commander.rename(); return true                      // ⇧F6, F2
             case (98, []): commander.mkdir(); return true                                        // F7
+            case (98, [.option]): commander.search(); return true                                // Alt+F7 hledání
             case (100, []): commander.delete(); return true                                      // F8
             case (100, [.shift]): commander.delete(permanent: true); return true                 // ⇧F8
             case (53, []):                                                                       // Esc

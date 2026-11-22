@@ -17,6 +17,7 @@ final class FTSettings: ObservableObject {
     @Published var fontSize: Double       { didSet { d.set(fontSize, forKey: "fontSize") } }
     @Published var themedIcon: Bool       { didSet { d.set(themedIcon, forKey: "themedIcon"); AppIcon.apply() } }
     @Published var autoUpdateCheck: Bool  { didSet { d.set(autoUpdateCheck, forKey: "autoUpdateCheck") } }
+    @Published var showSidebar: Bool      { didSet { d.set(showSidebar, forKey: "showSidebar") } }
 
     /// Klíč aktuálního motivu – při změně se okno přebuduje.
     @Published private(set) var themeKey = ""
@@ -35,6 +36,7 @@ final class FTSettings: ObservableObject {
         fontSize = ud.object(forKey: "fontSize") as? Double ?? 12.5
         themedIcon = b("themedIcon", true)
         autoUpdateCheck = b("autoUpdateCheck", true)
+        showSidebar = b("showSidebar", true)
         applyTheme()
         // „Podle macOS“: reagovat na přepnutí světlý/tmavý režim
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("AppleInterfaceThemeChangedNotification"),

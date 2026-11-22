@@ -13,6 +13,12 @@ struct MainView: View {
         VStack(spacing: 0) {
             Toolbar(commander: commander, settings: settings)
             Rectangle().fill(UI.border).frame(height: 1)
+            HStack(spacing: 0) {
+            if settings.showSidebar {
+                SidebarView(commander: commander, tab: commander.tab)
+                    .frame(width: 210)
+                Rectangle().fill(UI.border).frame(width: 1)
+            }
             GeometryReader { g in
                 let w = g.size.width
                 let minW = min(280, w / 2 - 20)
@@ -24,6 +30,7 @@ struct MainView: View {
                     PanelView(panel: commander.right, side: .right, commander: commander, settings: settings)
                 }
                 .coordinateSpace(name: "panels")
+            }
             }
             if !commander.ops.isEmpty {
                 Rectangle().fill(UI.border).frame(height: 1)
@@ -75,6 +82,10 @@ struct Toolbar: View {
 
     var body: some View {
         HStack(spacing: 4) {
+            button("sidebar.left", settings.showSidebar ? "Skrýt boční panel (⌃⌘S)" : "Zobrazit boční panel (⌃⌘S)", active: settings.showSidebar) {
+                settings.showSidebar.toggle()
+            }
+            Rectangle().fill(UI.border).frame(width: 1, height: 16).padding(.horizontal, 4)
             button("arrow.clockwise", "Obnovit oba panely (⇧⌘R)") { commander.refreshAll() }
             button("eye.slash", "Skryté soubory (⇧⌘.)", active: settings.showHidden) {
                 settings.showHidden.toggle(); commander.refreshAll()
@@ -89,7 +100,8 @@ struct Toolbar: View {
             button("folder.badge.plus", "Nová složka (F7 / ⌘7)") { commander.mkdir() }
             Spacer()
             button("terminal", "Otevřít Terminál ve složce aktivního panelu") { commander.openTerminalHere() }
-            button("magnifyingglass", "Zobrazit ve Finderu") { commander.revealInFinder() }
+            button("magnifyingglass", "Hledat soubory (⌘F / Alt+F7)") { commander.search() }
+            button("arrow.up.forward.app", "Zobrazit ve Finderu (⌥⌘R)") { commander.revealInFinder() }
             Rectangle().fill(UI.border).frame(width: 1, height: 16).padding(.horizontal, 4)
             SettingsButton()
         }
@@ -382,6 +394,8 @@ struct FunctionKeyBar: View {
             key("Alt+F5", "⌥⌘5", "Zabalit") { commander.pack() }
             sep
             key("Alt+F9", "⌥⌘9", "Rozbalit") { commander.unpack() }
+            sep
+            key("Alt+F7", "⌘F", "Hledat") { commander.search() }
         }
         .frame(height: 24)
         .background(UI.chrome)

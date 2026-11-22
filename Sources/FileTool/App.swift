@@ -47,6 +47,7 @@ struct FileToolApp: App {
                 Divider()
                 Button("Zobrazit ve Finderu") { commander.revealInFinder() }.keyboardShortcut("r", modifiers: [.command, .option])
                 Button("Kopírovat cestu") { commander.copyPaths() }.keyboardShortcut("c", modifiers: [.command, .option])
+                Button("Hledat… (Alt+F7)") { commander.search() }.keyboardShortcut("f")
                 Button("Otevřít Terminál zde") { commander.openTerminalHere() }
                 Divider()
                 Button("Připojit k serveru…") { commander.connectDialog() }.keyboardShortcut("k")
@@ -60,6 +61,8 @@ struct FileToolApp: App {
                 Button("Odznačit maskou… (num -)") { commander.markByMask(add: false) }.keyboardShortcut("-", modifiers: [.command, .option])
             }
             CommandGroup(after: .sidebar) {
+                Button(settings.showSidebar ? "Skrýt boční panel" : "Zobrazit boční panel") { settings.showSidebar.toggle() }
+                    .keyboardShortcut("s", modifiers: [.command, .control])
                 Button("Skryté soubory") { settings.showHidden.toggle(); commander.refreshAll() }
                     .keyboardShortcut(".", modifiers: [.command, .shift])
                 Button("Obnovit") { commander.refreshAll() }.keyboardShortcut("r", modifiers: [.command, .shift])
