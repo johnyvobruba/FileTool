@@ -185,7 +185,7 @@ struct FileTable: NSViewRepresentable {
 
         private func icon(_ i: FileItem) -> NSImage {
             let img: NSImage
-            if i.archiveInner != nil {                                       // v archivu soubor na disku není
+            if i.archiveInner != nil || i.remotePath != nil {               // v archivu / na serveru soubor na disku není
                 img = i.isDir ? NSWorkspace.shared.icon(for: .folder)
                     : NSWorkspace.shared.icon(for: UTType(filenameExtension: i.ext) ?? .data)
             } else {
@@ -332,7 +332,7 @@ struct FileTable: NSViewRepresentable {
         // MARK: Drag & drop (Finder i druhý panel)
 
         func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
-            guard tab.items.indices.contains(row), !tab.items[row].isParent, tab.items[row].archiveInner == nil else { return nil }
+            guard tab.items.indices.contains(row), !tab.items[row].isParent, tab.items[row].archiveInner == nil, tab.items[row].remotePath == nil else { return nil }
             return tab.items[row].url as NSURL
         }
 
@@ -348,6 +348,7 @@ struct FileTable: NSViewRepresentable {
                                                                  options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty else { return false }
             if tab.archive != nil { commander.dropIntoArchive(tab, urls); return true }
             let move = NSEvent.modifierFlags.contains(.command)
+            if tab.remote != nil { commander.upload(urls, to: tab, move: move); return true }
             let dir = tab.dir
             let srcs = urls.filter { $0.deletingLastPathComponent().standardizedFileURL != dir.standardizedFileURL }
             guard !srcs.isEmpty else { return false }

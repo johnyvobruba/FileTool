@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="FileTool"
 BUNDLE_ID="cz.local.filetool"
-VERSION="${VERSION_OVERRIDE:-0.2.0}"
+VERSION="${VERSION_OVERRIDE:-0.3.0}"
 
 # Aktualizace z GitHub Releases: owner/repo (env GITHUB_REPO > git remote origin) a veřejný klíč podpisu
 UPDATE_REPO="${GITHUB_REPO:-}"

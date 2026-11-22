@@ -155,7 +155,7 @@ struct PanelContent: View {
             // cesta – aktivní panel zvýrazněný barvou profilu (jako modrý pruh v TC)
             HStack(spacing: 6) {
                 TextField("", text: $tab.pathField, onCommit: {
-                    tab.go(URL(fileURLWithPath: (tab.pathField as NSString).expandingTildeInPath, isDirectory: true))
+                    tab.submitPath()
                     commander.focus(side)
                 })
                 .textFieldStyle(.plain)
@@ -217,14 +217,23 @@ struct DriveBar: View {
             }
             .menuStyle(.borderlessButton).fixedSize()
             .help("Výběr disku / místa (⌥⌘\(side == .left ? "1" : "2"))")
-            if let s = space {
+            ServerMenu(tab: tab, side: side, commander: commander)
+            if let r = tab.remote {
+                Text(r.session.config.scheme.uppercased() + " · " + r.session.config.dest)
+                    .font(.system(size: 10.5)).foregroundStyle(UI.textSecondary).lineLimit(1)
+            } else if let s = space {
                 Text("\(Fmt.bytes(s.free)) volných z \(Fmt.bytes(s.total))")
                     .font(.system(size: 10.5)).foregroundStyle(UI.textSecondary).lineLimit(1)
             }
             Spacer()
-            Button { tab.go(URL(fileURLWithPath: "/")) } label: { Text("/").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
+            Button { commander.sameAsOther(side) } label: {
+                Image(systemName: side == .left ? "arrow.left.square" : "arrow.right.square").font(.system(size: 12))
+            }
+            .buttonStyle(.plain).foregroundStyle(UI.textSecondary)
+            .help("Otevřít stejnou složku jako vedlejší panel")
+            Button { if tab.remote != nil { tab.goRemote("/") } else { tab.go(URL(fileURLWithPath: "/")) } } label: { Text("/").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
                 .buttonStyle(.plain).foregroundStyle(UI.textSecondary).help("Kořen svazku")
-            Button { tab.go(FileManager.default.homeDirectoryForCurrentUser) } label: { Text("~").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
+            Button { if let r = tab.remote { tab.goRemote(r.session.home) } else { tab.go(FileManager.default.homeDirectoryForCurrentUser) } } label: { Text("~").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
                 .buttonStyle(.plain).foregroundStyle(UI.textSecondary).help("Domovská složka")
             Button { tab.up() } label: { Text("..").font(.system(size: 11, weight: .semibold, design: .monospaced)) }
                 .buttonStyle(.plain).foregroundStyle(UI.textSecondary).help("Nadřazená složka")
@@ -357,5 +366,31 @@ struct OutputSheet: View {
         .padding(14)
         .frame(width: 720, height: 460)
         .background(UI.sidebar)
+    }
+}
+
+/// Nabídka serverů u panelu: uložená připojení, nové připojení (⌘K), odpojení.
+struct ServerMenu: View {
+    @ObservedObject var tab: PanelTab
+    let side: Side
+    let commander: Commander
+    @ObservedObject var store = RemoteStore.shared
+
+    var body: some View {
+        Menu {
+            ForEach(store.configs) { c in
+                Button { tab.connect(c); commander.focus(side) } label: { Label(c.title, systemImage: "server.rack") }
+            }
+            if !store.configs.isEmpty { Divider() }
+            Button("Připojit k serveru… (⌘K)") { commander.focus(side); commander.connectDialog() }
+            if tab.remote != nil {
+                Button("Odpojit (⇧⌘K)") { commander.focus(side); commander.disconnect() }
+            }
+        } label: {
+            Label(tab.remote == nil ? "Server" : "Připojeno", systemImage: tab.remote == nil ? "network" : "network.badge.shield.half.filled")
+                .font(.system(size: 11))
+        }
+        .menuStyle(.borderlessButton).fixedSize()
+        .help("SFTP / SCP / FTP")
     }
 }

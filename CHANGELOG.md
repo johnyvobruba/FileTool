@@ -3,6 +3,20 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.3.0
+
+- **Servery v panelu – SFTP, SCP a FTP/FTPS** (⌘K připojit, ⇧⌘K odpojit, nabídka „Server“ nad panelem):
+  - uložená připojení (bez hesla); heslo volitelně v Klíčence macOS, jinak se zadá při připojení;
+  - SFTP a SCP přes systémové ssh – funguje přihlášení klíčem, agentem i `~/.ssh/config`; jedno přihlášení na panel (ControlMaster);
+  - neznámý klíč serveru se ukáže k potvrzení (výchozí volba Odmítnout), OTP / ověřovací kódy přes dialog;
+  - FTP přes curl, výchozí FTPS s explicitním TLS; heslo jde curl přes stdin, ne v argumentech;
+  - F5/F6 stahování a nahrávání (i složky přes SFTP/SCP), F7 nová složka, F8 mazání (i složek s obsahem), ⇧F6 přejmenování;
+  - F3/Enter stáhne soubor do dočasné složky a otevře ho; F4 upraví kopii a po uložení ji nahraje zpět;
+  - stažené soubory dostanou karanténu macOS (Gatekeeper).
+- **ZIP s heslem:** Zabalit (⌥⌘5) má pole pro heslo – ZIP AES-256 přes 7-Zip (je-li nainstalovaný, jinak klasický ZipCrypto), nebo 7z se šifrovanými názvy.
+- **Tlačítko „stejná složka jako vedlejší panel“** v liště nad panelem (u serveru otevře stejné spojení).
+- **Volba editoru pro F4:** výchozí textový editor (TextEdit) nebo jakýkoliv nalezený (VS Code, Sublime, BBEdit, CotEditor, Nova, Zed…), případně vlastní aplikace.
+
 ## 0.1.0
 
 - **Dva panely se záložkami** (⌘T nová, ⌘W zavřít, ⌃Tab další). Tab přepíná panel. Složky panelů a záložek se pamatují.

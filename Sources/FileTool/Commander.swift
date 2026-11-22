@@ -91,18 +91,43 @@ final class Commander: ObservableObject {
 
     func refreshAll() { left.tab.refresh(); right.tab.refresh() }
 
+    /// Tlačítko u panelu: otevřít stejnou složku, jakou má vedlejší panel.
+    func sameAsOther(_ s: Side) {
+        let o = panel(s.other).tab
+        if let r = o.remote {                                     // vedlejší panel je na serveru → stejné spojení
+            var c = r.session.config; c.path = r.path
+            panel(s).tab.connect(c); focus(s); return
+        }
+        panel(s).tab.go(o.dir)
+        focus(s)
+    }
+
     func swapPanels() {
         let a = left.tab.dir, b = right.tab.dir
         left.tab.go(b); right.tab.go(a)
     }
 
     /// Druhý panel otevře stejnou složku jako aktivní (⌘→ / ⌘←).
-    func mirrorToOther() { other.tab.go(tab.dir) }
+    func mirrorToOther() {
+        if let r = tab.remote { var c = r.session.config; c.path = r.path; other.tab.connect(c); return }
+        other.tab.go(tab.dir)
+    }
 
     // MARK: F3 – Zobrazit (Quick Look)
 
     func view() {
         guard let t = tables[activeSide] else { return }
+        if tab.remote != nil {                                     // ze serveru: stáhnout do dočasné složky
+            let items = tab.selection.filter { !$0.isDir }
+            guard !items.isEmpty else { NSSound.beep(); return }
+            downloadToTemp(tab, items) { urls in
+                guard !urls.isEmpty else { return }
+                t.previewURLs = urls
+                t.window?.makeFirstResponder(t)
+                QLPreviewPanel.shared()?.makeKeyAndOrderFront(nil)
+            }
+            return
+        }
         if tab.archive != nil {                                    // z archivu: rozbalit do dočasné složky
             let items = tab.selection.filter { !$0.isDir }
             guard !items.isEmpty else { NSSound.beep(); return }
@@ -127,6 +152,7 @@ final class Commander: ObservableObject {
 
     func edit() {
         guard let i = tab.current, !i.isDir, !i.isParent else { NSSound.beep(); return }
+        if tab.remote != nil { editRemote(tab, i); return }
         if tab.archive != nil {                                    // jen kopie – změny se do archivu nevrací
             extractToTemp(tab, [i]) { [weak self] urls in
                 guard let u = urls.first else { return }
@@ -138,7 +164,7 @@ final class Commander: ObservableObject {
         openInEditor(i.url)
     }
 
-    private func openInEditor(_ url: URL) {
+    func openInEditor(_ url: URL) {
         let editor = FTSettings.shared.editorPath
         if !editor.isEmpty, FileManager.default.fileExists(atPath: editor) {
             NSWorkspace.shared.open([url], withApplicationAt: URL(fileURLWithPath: editor), configuration: NSWorkspace.OpenConfiguration())
@@ -201,7 +227,7 @@ final class Commander: ObservableObject {
 
     /// ⌥⌘5 (Alt+F5 v TC): zabalit označené do druhého panelu – ZIP, tar.gz nebo tar.xz.
     func pack() {
-        guard tab.archive == nil, other.tab.archive == nil else { alert("Balení", "Zabalit jde z běžné složky do běžné složky."); return }
+        guard tab.archive == nil, other.tab.archive == nil, tab.remote == nil, other.tab.remote == nil else { alert("Balení", "Zabalit jde z běžné složky do běžné složky."); return }
         let items = tab.selection
         guard !items.isEmpty else { NSSound.beep(); return }
         let defName = items.count == 1 ? items[0].baseName : tab.dir.lastPathComponent
@@ -209,16 +235,31 @@ final class Commander: ObservableObject {
         a.messageText = "Zabalit \(items.count == 1 ? "„\(items[0].name)“" : "\(items.count) položek") do \(other.tab.dir.path)"
         let name = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24)); name.stringValue = defName
         let fmt = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 110, height: 24), pullsDown: false)
-        fmt.addItems(withTitles: ["zip", "tar.gz", "tar.xz"])
+        fmt.addItems(withTitles: SevenZip.path != nil ? ["zip", "7z", "tar.gz", "tar.xz"] : ["zip", "tar.gz", "tar.xz"])
         let row = NSStackView(views: [name, fmt]); row.orientation = .horizontal; row.spacing = 8
-        row.frame = NSRect(x: 0, y: 0, width: 420, height: 26)
-        a.accessoryView = row
+        // heslo (nepovinné) – ZIP / 7z
+        let pw1 = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24)); pw1.placeholderString = "Heslo (nepovinné)"
+        let pw2 = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24)); pw2.placeholderString = "Heslo znovu"
+        let pwRow = NSStackView(views: [pw1, pw2]); pwRow.orientation = .horizontal; pwRow.spacing = 8
+        let note = NSTextField(wrappingLabelWithString: SevenZip.path != nil
+            ? "S heslem: ZIP i 7z šifrováno AES-256 (7-Zip). 7z šifruje i názvy souborů. tar heslo neumí."
+            : "S heslem jen ZIP přes macOS zip – slabé šifrování ZipCrypto. Pro AES-256: brew install sevenzip.")
+        note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
+        note.preferredMaxLayoutWidth = 420
+        let col = NSStackView(views: [row, pwRow, note]); col.orientation = .vertical; col.alignment = .leading; col.spacing = 8
+        col.frame = NSRect(x: 0, y: 0, width: 420, height: 96)
+        a.accessoryView = col
         a.addButton(withTitle: "Zabalit"); a.addButton(withTitle: "Zrušit")
         a.window.initialFirstResponder = name
         guard a.runModal() == .alertFirstButtonReturn else { return }
         let n = name.stringValue.trimmingCharacters(in: .whitespaces)
         let format = fmt.titleOfSelectedItem ?? "zip"
         guard !n.isEmpty, !n.contains("/") else { return }
+        let password = pw1.stringValue
+        if !password.isEmpty {
+            guard password == pw2.stringValue else { alert("Hesla se neshodují", "Zabalení zrušeno."); return }
+            guard format == "zip" || format == "7z" else { alert("\(format) heslo neumí", "Pro šifrování zvol ZIP nebo 7z."); return }
+        }
         let out = other.tab.dir.appendingPathComponent(n + "." + format)
         if FileManager.default.fileExists(atPath: out.path) {
             let c = NSAlert(); c.messageText = "„\(out.lastPathComponent)“ už existuje"; c.addButton(withTitle: "Přepsat"); c.addButton(withTitle: "Zrušit")
@@ -230,14 +271,17 @@ final class Commander: ObservableObject {
         let dir = tab.dir, names = items.map(\.name), cancel = op.cancel
         Task.detached(priority: .userInitiated) {
             var errs: [String] = []
-            do { try ArchiveIO.create(out, from: dir, names: names, format: format, cancel: cancel) } catch { errs.append(error.localizedDescription) }
+            do {
+                if password.isEmpty { try ArchiveIO.create(out, from: dir, names: names, format: format, cancel: cancel) }
+                else { try ArchiveIO.createEncrypted(out, from: dir, names: names, format: format, password: password, cancel: cancel) }
+            } catch { errs.append(error.localizedDescription) }
             await MainActor.run { self.finish(op, errs) }
         }
     }
 
     /// ⌥⌘9 (Alt+F9 v TC): rozbalit označené archivy (nebo obsah otevřeného archivu) do druhého panelu.
     func unpack() {
-        guard other.tab.archive == nil else { alert("Rozbalení", "Cílový panel musí být běžná složka."); return }
+        guard other.tab.archive == nil, other.tab.remote == nil, tab.remote == nil else { alert("Rozbalení", "Rozbaluje se z místní složky nebo archivu do místní složky."); return }
         let dest = other.tab.dir
         if let a = tab.archive {
             let items = tab.marked.isEmpty ? nil : tab.selection.compactMap(\.archiveInner)
@@ -284,7 +328,7 @@ final class Commander: ObservableObject {
         }
     }
 
-    private func confirm(_ text: String) -> Bool {
+    func confirm(_ text: String) -> Bool {
         let a = NSAlert(); a.messageText = text
         a.addButton(withTitle: "Pokračovat"); a.addButton(withTitle: "Zrušit")
         return a.runModal() == .alertFirstButtonReturn
@@ -364,6 +408,7 @@ final class Commander: ObservableObject {
     // MARK: F5 / F6 – Kopírovat / Přesunout
 
     func transfer(move: Bool) {
+        if remoteTransfer(move: move) { return }
         if archiveTransfer(move: move) { return }
         let items = tab.selection
         guard !items.isEmpty else { NSSound.beep(); return }
@@ -445,6 +490,7 @@ final class Commander: ObservableObject {
     // MARK: F7 – Nová složka
 
     func mkdir() {
+        if tab.remote != nil { remoteMkdir(); return }
         if tab.archive != nil { alert("V archivu nelze vytvořit složku", "Vytvoř ji ve složce a přidej do ZIP (F5)."); return }
         guard let n = askText("Nová složka", info: "v \(tab.dir.path)", initial: "", button: "Vytvořit"),
               !n.isEmpty, !n.contains("/") else { return }
@@ -459,6 +505,7 @@ final class Commander: ObservableObject {
     func delete(permanent: Bool = false) {
         let items = tab.selection
         guard !items.isEmpty else { NSSound.beep(); return }
+        if tab.remote != nil { remoteDelete(items); return }
         if let a = tab.archive {                                   // mazání v ZIP
             guard ArchiveIO.isZip(a.file) else { alert("Archiv \(a.index.format) je jen pro čtení", "Mazat jde jen ze ZIP."); return }
             guard confirm("Odebrat ze ZIP „\(a.file.lastPathComponent)“ \(items.count == 1 ? "„\(items[0].name)“" : "\(items.count) položek")?\n\nNelze vrátit (Koš se u položek v archivu nepoužije).") else { return }
@@ -498,6 +545,7 @@ final class Commander: ObservableObject {
 
     func rename() {
         guard let i = tab.current, !i.isParent else { NSSound.beep(); return }
+        if tab.remote != nil { remoteRename(i); return }
         if tab.archive != nil { alert("V archivu nelze přejmenovat", "Rozbal položku, přejmenuj ji a přidej zpět."); return }
         guard let n = askText("Přejmenovat", info: i.name, initial: i.name, button: "Přejmenovat", selectBase: !i.isDir),
               !n.isEmpty, n != i.name, !n.contains("/") else { return }
@@ -509,23 +557,32 @@ final class Commander: ObservableObject {
 
     /// Otevřít výchozí aplikací (i archiv, místo procházení).
     func openExternally() {
+        if tab.remote != nil { if let i = tab.current, !i.isParent, !i.isDir { openFromRemote(tab, [i]) }; return }
         guard let i = tab.current, !i.isParent, i.archiveInner == nil else { if let i = tab.current, i.archiveInner != nil { openFromArchive(tab, [i]) }; return }
         NSWorkspace.shared.open(i.url)
     }
 
     func revealInFinder() {
+        if tab.remote != nil { NSSound.beep(); return }
         if let a = tab.archive { NSWorkspace.shared.activateFileViewerSelecting([a.file]); return }
         let urls = tab.selection.map(\.url)
         if urls.isEmpty { NSWorkspace.shared.open(tab.dir) } else { NSWorkspace.shared.activateFileViewerSelecting(urls) }
     }
 
     func copyPaths() {
+        if let r = tab.remote {
+            let p = tab.selection.compactMap(\.remotePath)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString((p.isEmpty ? [r.path] : p).map { r.session.label + $0 }.joined(separator: "\n"), forType: .string)
+            return
+        }
         let p = tab.selection.map(\.url.path)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString((p.isEmpty ? [tab.dir.path] : p).joined(separator: "\n"), forType: .string)
     }
 
     func openTerminalHere() {
+        if tab.remote != nil { alert("Panel je na serveru", "Terminál jde otevřít jen v místní složce."); return }
         NSWorkspace.shared.open([tab.dir], withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
                                 configuration: NSWorkspace.OpenConfiguration())
     }
@@ -540,7 +597,7 @@ final class Commander: ObservableObject {
 
     // MARK: Průběh operací
 
-    private func start(_ op: FileOperation) {
+    func start(_ op: FileOperation) {
         ops.append(op)
         if opTimer == nil {
             opTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -552,7 +609,7 @@ final class Commander: ObservableObject {
         }
     }
 
-    private func finish(_ op: FileOperation, _ errs: [String], refresh: Bool = true) {
+    func finish(_ op: FileOperation, _ errs: [String], refresh: Bool = true) {
         op.pull()
         op.errors = errs
         op.finished = true
@@ -574,6 +631,11 @@ final class Commander: ObservableObject {
         let cmd = commandLine.trimmingCharacters(in: .whitespaces)
         guard !cmd.isEmpty else { return }
         commandLine = ""
+        if tab.remote != nil {
+            if cmd == "cd" { tab.goRemote(tab.remote?.session.home ?? "/"); return }
+            if cmd.hasPrefix("cd ") { tab.goRemote(String(cmd.dropFirst(3)).trimmingCharacters(in: .whitespaces)); return }
+            alert("Panel je na serveru", "Příkazový řádek spouští příkazy jen v místní složce (na serveru funguje jen cd)."); return
+        }
         if cmd == "cd" { tab.go(FileManager.default.homeDirectoryForCurrentUser); return }
         if cmd.hasPrefix("cd ") {
             let arg = (String(cmd.dropFirst(3)).trimmingCharacters(in: .whitespaces) as NSString).expandingTildeInPath

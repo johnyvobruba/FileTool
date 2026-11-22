@@ -17,6 +17,8 @@ struct FileItem: Identifiable, Hashable {
     var isParent = false
     /// Položka uvnitř archivu: vnitřní cesta (url je pak jen identifikátor, na disku neexistuje).
     var archiveInner: String? = nil
+    /// Položka na vzdáleném serveru: absolutní cesta tam.
+    var remotePath: String? = nil
 
     var id: URL { url }
     var ext: String { isDir || isParent ? "" : (name as NSString).pathExtension }
@@ -26,7 +28,7 @@ struct FileItem: Identifiable, Hashable {
         if isDir || ext.isEmpty || name.hasPrefix(".") && !name.dropFirst().contains(".") { return name }
         return (name as NSString).deletingPathExtension
     }
-    var isArchive: Bool { !isDir && archiveInner == nil && ArchiveIO.isArchive(url) }
+    var isArchive: Bool { !isDir && archiveInner == nil && remotePath == nil && ArchiveIO.isArchive(url) }
 
     static func fromArchive(_ e: ArchiveEntry, archive: URL) -> FileItem {
         FileItem(url: URL(fileURLWithPath: archive.path + "/" + e.path), name: e.name, isDir: e.isDir, isPackage: false,

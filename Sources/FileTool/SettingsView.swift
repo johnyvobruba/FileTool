@@ -33,15 +33,21 @@ struct SettingsView: View {
                 Toggle("Potvrzovat mazání", isOn: $settings.confirmDelete)
                 LabeledContent("Editor pro F4") {
                     HStack {
-                        Text(settings.editorPath.isEmpty ? "Výchozí textový editor" : (settings.editorPath as NSString).lastPathComponent)
-                            .foregroundStyle(.secondary)
-                        Button("Vybrat…") {
+                        // nainstalované editory (VS Code, Sublime, BBEdit, CotEditor, Nova, Zed…) + vlastní volba
+                        Picker("", selection: $settings.editorPath) {
+                            Text("Výchozí textový editor (TextEdit)").tag("")
+                            ForEach(Editors.installed(), id: \.path) { e in Text(e.name).tag(e.path) }
+                            if !settings.editorPath.isEmpty, !Editors.installed().contains(where: { $0.path == settings.editorPath }) {
+                                Text((settings.editorPath as NSString).lastPathComponent).tag(settings.editorPath)
+                            }
+                        }
+                        .labelsHidden().frame(width: 230)
+                        Button("Jiná…") {
                             let p = NSOpenPanel()
                             p.directoryURL = URL(fileURLWithPath: "/Applications")
                             p.allowedContentTypes = [.application]
                             if p.runModal() == .OK, let u = p.url { settings.editorPath = u.path }
                         }
-                        if !settings.editorPath.isEmpty { Button("Výchozí") { settings.editorPath = "" } }
                     }
                 }
             }

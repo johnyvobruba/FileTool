@@ -277,6 +277,25 @@ enum ArchiveIO {
         guard r.0 == 0 else { try? FileManager.default.removeItem(at: out); throw ArchiveError.tool("Balení selhalo (kód \(r.0)): \(r.1.suffix(300))") }
     }
 
+    /// Šifrovaný archiv. 7-Zip (je-li nainstalovaný): ZIP i 7z s AES-256 (7z i se šifrovanými názvy).
+    /// Bez 7-Zip jen ZIP přes /usr/bin/zip -e (ZipCrypto – slabé šifrování). Heslo jde přes pseudoterminál.
+    static func createEncrypted(_ out: URL, from dir: URL, names: [String], format: String, password: String, cancel: Box<Bool>) throws {
+        let items = names.map { "./" + $0 }
+        let r: (Int32, String)
+        if let sz = SevenZip.path {
+            let type = format == "7z" ? ["-t7z", "-mhe=on"] : ["-tzip", "-mem=AES256"]
+            r = PtyRunner.run(sz, ["a"] + type + ["-p", "-y", "-bso0", "-bsp0", out.path] + items, cwd: dir, password: password, cancel: cancel)
+        } else {
+            guard format == "zip" else { throw ArchiveError.tool("Formát 7z potřebuje 7-Zip (brew install sevenzip).") }
+            r = PtyRunner.run("/usr/bin/zip", ["-r", "-y", "-e", out.path] + items, cwd: dir, password: password, cancel: cancel)
+        }
+        if cancel.value { try? FileManager.default.removeItem(at: out); throw ArchiveError.cancelled }
+        guard r.0 == 0, FileManager.default.fileExists(atPath: out.path) else {
+            try? FileManager.default.removeItem(at: out)
+            throw ArchiveError.tool("Šifrované balení selhalo (kód \(r.0)): \(r.1.suffix(300))")
+        }
+    }
+
     /// Přidá soubory do ZIP na vnitřní cestu `inner` (přes dočasnou složku se stejnou strukturou), pak ověří ZIP.
     static func addToZip(_ zip: URL, inner: String, sources: [URL], cancel: Box<Bool>) throws {
         let fm = FileManager.default

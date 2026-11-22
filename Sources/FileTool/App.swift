@@ -48,6 +48,9 @@ struct FileToolApp: App {
                 Button("Zobrazit ve Finderu") { commander.revealInFinder() }.keyboardShortcut("r", modifiers: [.command, .option])
                 Button("Kopírovat cestu") { commander.copyPaths() }.keyboardShortcut("c", modifiers: [.command, .option])
                 Button("Otevřít Terminál zde") { commander.openTerminalHere() }
+                Divider()
+                Button("Připojit k serveru…") { commander.connectDialog() }.keyboardShortcut("k")
+                Button("Odpojit od serveru") { commander.disconnect() }.keyboardShortcut("k", modifiers: [.command, .shift])
             }
             CommandMenu("Výběr") {
                 Button("Označit vše") { commander.tab.markAll() }.keyboardShortcut("a")
