@@ -3,6 +3,16 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.6.0
+
+- **Úklid disku** (⇧⌘U, ikona v liště) – najde, co zabírá místo:
+  - **Velké soubory** nad zvolenou velikost (50 MB – 5 GB) ve vybrané složce;
+  - **Nepoužívané soubory** – neotevřené 6 měsíců až 3 roky (datum posledního otevření ze Spotlightu, jinak datum změny);
+  - **Nepoužívané aplikace** – dlouho nespuštěné aplikace (bez aplikací Apple) i s velikostí;
+  - **Mezipaměti a logy** – ~/Library/Caches, Logs, Xcode DerivedData / Archives / DeviceSupport, npm, ~/.cache, přílohy Mailu.
+  - Mazání jen **do Koše** po potvrzení (lze vrátit); u mezipamětí se maže jen obsah složky. Systémové složky se neprohledávají ani nenabízejí, soubory jen v iCloudu se přeskočí.
+  - Výsledky lze zobrazit ve Finderu nebo v aktivním panelu (např. zkopírovat na externí disk a pak smazat).
+
 ## 0.5.1
 
 - **Servery ve složkách** jako v SSHTool: skupina „Zákazník A/Praha“ = podsložka. Boční panel ukazuje rozbalovací strom (stav se pamatuje), nabídka Server má vnořené podnabídky, v dialogu ⌘K je pole Složka. Struktura se přebírá i při importu ze SSHTool.
