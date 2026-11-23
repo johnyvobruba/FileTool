@@ -61,7 +61,7 @@ enum RemotePath {
 struct RemoteConfig: Codable, Identifiable, Hashable {
     var id = UUID()
     var name = ""
-    var proto = "sftp"          // sftp | scp | ftp
+    var proto = "sftp"          // sftp | scp | ftp | smb
     var host = ""
     var port = 22
     var user = ""
@@ -84,6 +84,7 @@ struct RemoteConfig: Codable, Identifiable, Hashable {
         }
         if host.contains("/") || host.contains("@") { return "Server zadej bez uživatele a cesty (např. fw1.example.com)." }
         if !(1...65535).contains(port) { return "Port musí být 1–65535." }
+        if proto == "smb", path.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).isEmpty { return "Zadej název sdílení (např. Data nebo Data/Projekty)." }
         return nil
     }
 }

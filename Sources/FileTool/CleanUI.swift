@@ -118,7 +118,7 @@ struct CleanRootView: View {
                             .foregroundStyle(UI.warn)
                         Text("Bez Plného přístupu k disku nevidí FileTool Koš, Mail a další složky.")
                             .font(.system(size: 10.5)).foregroundStyle(UI.textSecondary).fixedSize(horizontal: false, vertical: true)
-                        Button("Otevřít nastavení") { CleanFS.openFullDiskAccessSettings() }.buttonStyle(SKButton())
+                        Button("Nastavit přístup…") { Permissions.guide() }.buttonStyle(SKButton())
                     }
                     .padding(10)
                     .background(RoundedRectangle(cornerRadius: 8).fill(UI.card.opacity(0.6)))
@@ -321,7 +321,12 @@ struct JunkView: View {
                     Text(cat.help).font(SK.helpFont).foregroundStyle(UI.textSecondary).lineLimit(1)
                 }
                 Spacer()
-                Text(Fmt.bytes(cat.size)).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(UI.text)
+                let sel = cat.items.filter { m.checked.contains($0.id) }.reduce(Int64(0)) { $0 + $1.size }
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(Fmt.bytes(sel)).font(.system(size: 13, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(sel > 0 ? UI.accent : UI.textTertiary)
+                    Text("z \(Fmt.bytes(cat.size))").font(.system(size: 10.5).monospacedDigit()).foregroundStyle(UI.textSecondary)
+                }
                 Button {
                     if open { m.expanded.remove(cat.id) } else { m.expanded.insert(cat.id) }
                 } label: {
@@ -364,17 +369,16 @@ struct LargeOldView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 folderPicker($m.root)
-                Picker("Větší než", selection: $m.minSizeMB) {
-                    Text("10 MB").tag(10); Text("50 MB").tag(50); Text("100 MB").tag(100); Text("500 MB").tag(500); Text("1 GB").tag(1024)
-                }.frame(width: 160)
-                Toggle("Včetně ~/Library", isOn: $m.includeLibrary).toggleStyle(.checkbox)
+                Text("Větší než").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                SKMenuPicker(selection: $m.minSizeMB, options: [(10, "10 MB"), (50, "50 MB"), (100, "100 MB"), (500, "500 MB"), (1024, "1 GB")], width: 100)
+                Toggle("Včetně ~/Library", isOn: $m.includeLibrary).toggleStyle(.checkbox).fixedSize()
             }
             ScanBar(running: m.running, status: m.status, scan: { m.scan() }, stop: { m.stop() })
             HStack(spacing: 12) {
-                Picker("", selection: $m.kind) { ForEach(FileKind.allCases) { Text($0.title).tag($0) } }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 520)
-                Picker("", selection: $m.age) { ForEach(AgeFilter.allCases) { Text($0.title).tag($0) } }
-                    .labelsHidden().frame(width: 190)
+                Text("Typ").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                SKMenuPicker(selection: $m.kind, options: FileKind.allCases.map { ($0, $0.title) }, width: 150)
+                Text("Stáří").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                SKMenuPicker(selection: $m.age, options: AgeFilter.allCases.map { ($0, $0.title) }, width: 210)
                 Spacer()
                 Text("\(m.shown.count) · \(Fmt.bytes(m.shownSize))").font(SK.helpFont).foregroundStyle(UI.textSecondary)
             }
@@ -635,9 +639,8 @@ struct DuplicatesView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 folderPicker($m.root)
-                Picker("Od velikosti", selection: $m.minSizeMB) {
-                    Text("100 kB").tag(0); Text("1 MB").tag(1); Text("10 MB").tag(10); Text("100 MB").tag(100)
-                }.frame(width: 170)
+                Text("Od velikosti").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                SKMenuPicker(selection: $m.minSizeMB, options: [(0, "100 kB"), (1, "1 MB"), (10, "10 MB"), (100, "100 MB")], width: 100)
             }
             ScanBar(running: m.running, status: m.status, scan: { m.scan() }, stop: { m.stop() })
             HStack {

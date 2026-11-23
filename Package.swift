@@ -8,6 +8,7 @@ let package = Package(
     platforms: [.macOS(.v13)],
     targets: [
         .target(name: "CArchive", path: "Sources/CArchive", linkerSettings: [.linkedLibrary("archive")]),
-        .executableTarget(name: "FileTool", dependencies: ["CArchive"], path: "Sources/FileTool"),
+        .executableTarget(name: "FileTool", dependencies: ["CArchive"], path: "Sources/FileTool",
+                          linkerSettings: [.linkedFramework("NetFS")]),
     ]
 )

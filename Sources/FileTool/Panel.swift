@@ -217,6 +217,24 @@ final class PanelTab: ObservableObject, Identifiable {
 
     /// Připojí záložku k serveru (dosavadní složka zůstává jako návrat po odpojení).
     func connect(_ config: RemoteConfig) {
+        if config.proto == "smb" {                                    // SMB = systémové připojení do /Volumes
+            opening = true
+            SMBMount.mount(config) { r in
+                self.opening = false
+                switch r {
+                case .success(let u):
+                    self.go(u)
+                    SidebarModel.shared.reloadVolumes()
+                case .failure(let e):
+                    if let re = e as? RemoteError, case .cancelled = re { return }
+                    let a = NSAlert()
+                    a.messageText = "Připojení k \(config.title) selhalo"
+                    a.informativeText = e.localizedDescription
+                    a.runModal()
+                }
+            }
+            return
+        }
         opening = true
         let s = RemoteSession(config: config)
         Task {

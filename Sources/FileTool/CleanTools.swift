@@ -367,7 +367,7 @@ final class DuplicatesModel: ObservableObject {
                 let s = Int64(v.fileSize ?? 0)
                 guard s >= minBytes else { continue }
                 bySize[s, default: []].append(DupFile(url: u, size: s, modified: v.contentModificationDate ?? .distantPast))
-                if n % 2000 == 0 { let k = n; await MainActor.run { self.status = "Prošlo \(k) položek…" } }
+                if n % 2000 == 0 { let k = n; await MainActor.run { guard self.cancel === c else { return }; self.status = "Prošlo \(k) položek…" } }
             }
             // stejná velikost → hash prvních 64 kB → hash celého souboru
             let candidates = bySize.values.filter { $0.count > 1 }
@@ -387,11 +387,11 @@ final class DuplicatesModel: ObservableObject {
                 done += 1
                 if done % 20 == 0 {
                     let k = done, total = candidates.count
-                    await MainActor.run { self.status = "Porovnávám obsah \(k) / \(total)…" }
+                    await MainActor.run { guard self.cancel === c else { return }; self.status = "Porovnávám obsah \(k) / \(total)…" }
                 }
             }
             let res = result.sorted { $0.wasted > $1.wasted }
-            await MainActor.run {
+            await MainActor.run { guard self.cancel === c else { return };
                 self.groups = res
                 self.autoSelect(keepNewest: true)
                 self.running = false; self.scanned = true

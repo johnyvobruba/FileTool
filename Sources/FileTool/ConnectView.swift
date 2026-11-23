@@ -20,7 +20,7 @@ final class ConnectModel: ObservableObject {
     func new() { selected = nil; draft = RemoteConfig(); portText = "22"; problem = nil }
 
     func protoChanged(_ p: String) {
-        let defaults = ["sftp": 22, "scp": 22, "ftp": 21]
+        let defaults = ["sftp": 22, "scp": 22, "ftp": 21, "smb": 445]
         if defaults.values.contains(Int(portText) ?? -1) { portText = String(defaults[p] ?? 22) }
         draft.proto = p
         if p == "ftp", draft.ftpTLS == "implicit", portText == "21" { portText = "990" }
@@ -74,7 +74,7 @@ struct ConnectView: View {
                     ForEach(store.configs) { c in
                         Button { model.pick(c) } label: {
                             HStack {
-                                Image(systemName: c.proto == "ftp" ? "externaldrive.connected.to.line.below" : "lock.shield")
+                                Image(systemName: c.proto == "smb" ? "externaldrive.connected.to.line.below" : c.proto == "ftp" ? "tray.and.arrow.down" : "lock.shield")
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(c.title).lineLimit(1)
                                     Text("\(c.scheme)://\(c.dest)").font(.system(size: 10)).foregroundColor(.secondary).lineLimit(1)
@@ -106,6 +106,7 @@ struct ConnectView: View {
                         Text("SFTP").tag("sftp")
                         Text("SCP (zařízení bez SFTP)").tag("scp")
                         Text("FTP / FTPS").tag("ftp")
+                        Text("SMB (sdílení Windows / NAS)").tag("smb")
                     }
                     TextField("Server", text: $model.draft.host)
                     TextField("Port", text: $model.portText)
@@ -117,10 +118,17 @@ struct ConnectView: View {
                             Text("Bez šifrování (heslo jde po síti čitelně)").tag("")
                         }
                     }
-                    TextField("Počáteční složka", text: $model.draft.path, prompt: Text("domovská"))
-                    Toggle("Uložit heslo do Klíčenky", isOn: $model.draft.savePassword)
+                    if model.draft.proto == "smb" {
+                        TextField("Sdílení", text: $model.draft.path, prompt: Text("např. Data nebo Data/Projekty"))
+                    } else {
+                        TextField("Počáteční složka", text: $model.draft.path, prompt: Text("domovská"))
+                        Toggle("Uložit heslo do Klíčenky", isOn: $model.draft.savePassword)
+                    }
                 }
-                if model.draft.proto != "ftp" {
+                if model.draft.proto == "smb" {
+                    Text("Připojí se jako disk (/Volumes) a panel ho prochází jako běžnou složku. Heslo zadáš v dialogu macOS, který nabídne uložení do Klíčenky. Odpojení: ⏏ u disku v bočním panelu.")
+                        .font(.system(size: 11)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                } else if model.draft.proto != "ftp" {
                     Text("Přihlášení klíčem nebo agentem funguje bez hesla (podle ~/.ssh/config). Neznámý klíč serveru se před uložením ukáže k potvrzení.")
                         .font(.system(size: 11)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
                 } else if model.draft.ftpTLS.isEmpty {

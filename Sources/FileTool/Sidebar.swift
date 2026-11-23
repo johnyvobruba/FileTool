@@ -181,7 +181,7 @@ struct SidebarView: View {
                             .tip(path)
                         case .server(let c):
                             let on = tab.remote?.session.config.id == c.id
-                            row(symbol: "server.rack", title: c.title, detail: c.proto.uppercased(), current: on) {
+                            row(symbol: c.proto == "smb" ? "externaldrive.connected.to.line.below" : "server.rack", title: c.title, detail: c.proto.uppercased(), current: on) {
                                 commander.tab.connect(c); commander.focus(commander.activeSide)
                             }
                             .padding(.leading, CGFloat(r.depth) * 14 + (r.depth > 0 ? 10 : 0))

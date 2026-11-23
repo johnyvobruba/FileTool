@@ -28,6 +28,7 @@ enum RemoteImport {
         case "", "ssh", "sftp": c.proto = str("fileTransfer").lowercased() == "scp" ? "scp" : "sftp"
         case "scp": c.proto = "scp"
         case "ftp", "ftps": c.proto = "ftp"
+        case "smb", "cifs": c.proto = "smb"
         default: return nil                                      // rdp, telnet, serial…
         }
         c.name = str("name")
@@ -38,7 +39,7 @@ enum RemoteImport {
         c.group = g.isEmpty || g == "Default" ? nil : g
         if let p = o["port"] as? Int { c.port = p }
         else if let p = Int(str("port")) { c.port = p }
-        else { c.port = c.proto == "ftp" ? (str("ftpTLS") == "implicit" ? 990 : 21) : 22 }
+        else { c.port = c.proto == "ftp" ? (str("ftpTLS") == "implicit" ? 990 : 21) : c.proto == "smb" ? 445 : 22 }
         if c.proto == "ftp" {
             let tls = o["ftpTLS"] == nil ? (proto == "ftps" ? "implicit" : "explicit") : str("ftpTLS")
             c.ftpTLS = ["", "explicit", "implicit"].contains(tls) ? tls : "explicit"
@@ -156,6 +157,14 @@ enum RemoteImport {
         "port": 21,
         "user": "backup",
         "ftpTLS": "explicit"
+      },
+      {
+        "name": "NAS – projekty",
+        "proto": "smb",
+        "host": "198.51.100.20",
+        "user": "jnovak",
+        "path": "Data/Projekty",
+        "group": "Firma"
       }
     ]
     """

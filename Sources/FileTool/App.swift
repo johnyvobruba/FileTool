@@ -96,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated {
             AppIcon.apply()
             Updater.shared.checkOnLaunch()
+            Permissions.askOnLaunchIfNeeded()
         }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

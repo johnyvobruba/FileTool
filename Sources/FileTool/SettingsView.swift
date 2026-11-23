@@ -170,7 +170,7 @@ struct KeyHint: View {
 // MARK: - Navigace
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, appearance, servers, shortcuts, about
+    case general, appearance, servers, permissions, shortcuts, about
     var id: String { rawValue }
 
     var title: String {
@@ -178,6 +178,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: return "Obecné"
         case .appearance: return "Vzhled"
         case .servers: return "Servery"
+        case .permissions: return "Oprávnění"
         case .shortcuts: return "Klávesové zkratky"
         case .about: return "O aplikaci"
         }
@@ -186,7 +187,8 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "Panely, mazání a editor"
         case .appearance: return "Barevný profil aplikace a ikona"
-        case .servers: return "Uložená připojení SFTP, SCP a FTP"
+        case .servers: return "Uložená připojení SFTP, SCP, FTP a SMB"
+        case .permissions: return "Přístup ke složkám a diskům"
         case .shortcuts: return "Přehled klávesových zkratek"
         case .about: return AppCredits.line
         }
@@ -196,6 +198,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .general: return "gearshape"
         case .appearance: return "paintpalette"
         case .servers: return "network"
+        case .permissions: return "lock.shield"
         case .shortcuts: return "keyboard"
         case .about: return "info.circle"
         }
@@ -297,6 +300,7 @@ struct SettingsView: View {
         case .general: SettingsGeneralPane(settings: settings)
         case .appearance: SettingsAppearancePane(settings: settings)
         case .servers: SettingsServersPane()
+        case .permissions: SettingsPermissionsPane()
         case .shortcuts: SettingsShortcutsPane()
         case .about: SettingsAboutPane(settings: settings)
         }
@@ -536,7 +540,36 @@ struct SettingsServersPane: View {
         SKSection("Protokoly") {
             SKRow("SFTP", help: "Systémové ssh: klíče, agent i ~/.ssh/config. Neznámý klíč serveru se před uložením ukáže k potvrzení.", first: true) { EmptyView() }
             SKRow("SCP", help: "Pro zařízení bez SFTP (některé síťové prvky). Výpis přes ssh, přenosy přes scp.") { EmptyView() }
+            SKRow("SMB", help: "Sdílené složky Windows / NAS – připojí se jako disk a panel je prochází jako běžné složky. Heslo spravuje macOS (Klíčenka).") { EmptyView() }
             SKRow("FTP / FTPS", help: "Přes curl, výchozí explicitní TLS. Nešifrované FTP posílá heslo čitelně – jen v izolované síti.") { EmptyView() }
+        }
+    }
+}
+
+// MARK: - Oprávnění
+
+struct SettingsPermissionsPane: View {
+    var body: some View {
+        let ok = Permissions.hasFullDiskAccess
+        SKSection("Plný přístup k disku", subtitle: "Jedno oprávnění pro všechny složky – macOS se pak neptá zvlášť na Plochu, Dokumenty, Stažené, síťové a externí disky, Koš nebo Mail.") {
+            SKRow(ok ? "Zapnuto" : "Vypnuto", help: ok ? "FileTool vidí do všech složek." : "Bez něj se macOS ptá u každé chráněné složky zvlášť a Úklid nevidí Koš, Mail a další místa.", first: true) {
+                Image(systemName: ok ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                    .font(.system(size: 20)).foregroundStyle(ok ? UI.ok : UI.warn)
+            }
+            if !ok {
+                SKRow("1. Otevřít nastavení", help: "Soukromí a zabezpečení → Plný přístup k disku.") {
+                    Button("Otevřít") { Permissions.openSettings() }.buttonStyle(SKButton(kind: .primary))
+                }
+                SKRow("2. Přidat FileTool", help: "V seznamu klikni na „+“ a vyber FileTool, nebo ho přetáhni z Finderu. Pak zapni přepínač.") {
+                    Button("Ukázat FileTool ve Finderu") { NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL]) }.buttonStyle(SKButton())
+                }
+                SKRow("3. Restartovat FileTool", help: "Oprávnění platí až po novém spuštění.") {
+                    Button("Restartovat") { Permissions.relaunch() }.buttonStyle(SKButton())
+                }
+            }
+        }
+        SKSection("Poznámka k aktualizacím") {
+            SKRow("Oprávnění po aktualizaci", help: "FileTool je podepsaný bez certifikátu Apple Developer. macOS proto může po aktualizaci oprávnění „zapomenout“ – v seznamu FileTool vypni a znovu zapni (případně odeber „−“ a přidej znovu).", first: true) { EmptyView() }
         }
     }
 }

@@ -60,12 +60,7 @@ enum CleanFS {
     }
 
     /// Plný přístup k disku: bez něj macOS nedovolí číst Koš, Mail a další složky.
-    static var hasFullDiskAccess: Bool {
-        let probe = home + "/Library/Containers/com.apple.stocks"
-        let probe2 = home + "/Library/Safari"
-        return FileManager.default.isReadableFile(atPath: probe2) && (try? FileManager.default.contentsOfDirectory(atPath: probe2)) != nil
-            || (try? FileManager.default.contentsOfDirectory(atPath: probe)) != nil
-    }
+    static var hasFullDiskAccess: Bool { Permissions.hasFullDiskAccess }
 
     @MainActor static func openFullDiskAccessSettings() {
         if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") { NSWorkspace.shared.open(u) }
@@ -175,7 +170,7 @@ final class JunkModel: ObservableObject {
             var cats: [JunkCategory] = []
             for d in defs {
                 if c.value { break }
-                await MainActor.run { self.status = "Prohledávám: \(d.title)…" }
+                await MainActor.run { guard self.cancel === c else { return }; self.status = "Prohledávám: \(d.title)…" }
                 var items: [JunkItem] = []
                 for r in d.roots {
                     let root = CleanFS.expand(r)
@@ -199,7 +194,7 @@ final class JunkModel: ObservableObject {
                 cats.append(JunkCategory(id: d.id, title: d.title, icon: d.icon, help: d.help, defaultOn: d.defaultOn, permanent: d.permanent, items: items))
             }
             let result = cats
-            await MainActor.run {
+            await MainActor.run { guard self.cancel === c else { return };
                 self.categories = result
                 self.checked = Set(result.filter(\.defaultOn).flatMap(\.items).filter { !$0.note.hasSuffix("aplikace běží") }.map(\.id))
                 self.running = false
@@ -340,11 +335,11 @@ final class LargeOldModel: ObservableObject {
                 if Date().timeIntervalSince(last) > 0.3 {
                     last = Date()
                     let b = batch, count = n; batch = []
-                    await MainActor.run { self.files += b; self.files.sort { $0.size > $1.size }; self.status = "Prohledáno \(count) položek…" }
+                    await MainActor.run { guard self.cancel === c else { return }; self.files += b; self.files.sort { $0.size > $1.size }; self.status = "Prohledáno \(count) položek…" }
                 }
             }
             let b = batch, count = n
-            await MainActor.run {
+            await MainActor.run { guard self.cancel === c else { return };
                 self.files += b; self.files.sort { $0.size > $1.size }
                 self.running = false; self.scanned = true
                 self.status = (c.value ? "Zastaveno · " : "") + "\(self.files.count) souborů, \(Fmt.bytes(self.files.reduce(0) { $0 + $1.size })) · prohledáno \(count) položek"

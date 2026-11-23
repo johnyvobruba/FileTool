@@ -3,6 +3,13 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.8.0
+
+- **SMB sdílení** (Windows, NAS) v připojení k serverům: připojí se jako disk a panel ho prochází jako běžnou složku (všechny operace F3–F8, hledání, Úklid). Heslo spravuje macOS (dialog s uložením do Klíčenky), odpojení ⏏ v bočním panelu. Import / export JSON umí `"proto": "smb"`.
+- **Plný přístup k disku na jednom místě:** nová stránka Nastavení → Oprávnění (stav, odkaz do Nastavení systému, ukázání FileTool ve Finderu, restart). Při spuštění se FileTool jednou zeptá, jestli přístup nastavit – pak už se macOS neptá u každé složky zvlášť.
+- **Systémový odpad:** u každé kategorie je vidět, kolik je zaškrtnuto (z celkové velikosti).
+- Opravy Úklidu: filtry Typ a Stáří jako rozbalovací nabídky (přetékaly do bočního menu), opakované nebo zastavené hledání už nepřimíchá výsledky z předchozího běhu (týká se i Hledání).
+
 ## 0.7.0
 
 - **Úklid jako samostatný nástroj** (⇧⌘U, ✨ v liště) ve stylu CleanMyMac – vlevo moduly:

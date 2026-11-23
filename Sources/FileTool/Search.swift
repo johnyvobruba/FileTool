@@ -53,6 +53,7 @@ final class SearchModel: ObservableObject {
                 let batch = found.value; found.value = []
                 let n = scanned
                 await MainActor.run { [batch] in
+                    guard self.cancel === c else { return }
                     self.hits.append(contentsOf: batch)
                     self.status = final ? "" : "Prohledáno \(n) položek…"
                 }
@@ -86,7 +87,7 @@ final class SearchModel: ObservableObject {
             }
             await flush(true)
             let stopped = c.value
-            await MainActor.run {
+            await MainActor.run { guard self.cancel === c else { return };
                 self.running = false
                 self.status = (stopped ? "Zastaveno · " : "") + "Nalezeno \(self.hits.count) · prohledáno \(scanned) položek"
             }
