@@ -317,8 +317,19 @@ enum ArchiveIO {
 
     /// Smaže položky (i složky) ze ZIP, pak ověří.
     static func deleteFromZip(_ zip: URL, paths: [String], dirs: Set<String>) throws {
-        var args = ["-d", "-q", zip.path]
-        for p in paths { args.append(p); if dirs.contains(p) { args.append(p + "/*"); args.append(p + "/") } }
+        // -nw: názvy z archivu se berou doslova (položka „*“ nesmaže vše); obsah složky se vyjmenuje
+        if let bad = paths.first(where: { $0.hasPrefix("-") }) {
+            throw ArchiveError.tool("Položku „\(bad)“ nelze bezpečně smazat (název začíná „-“).")
+        }
+        var args = ["-d", "-q", "-nw", zip.path]
+        let all = (try? index(zip))?.entries.keys.map { $0 } ?? []
+        for p in paths {
+            args.append(p)
+            if dirs.contains(p) {
+                args.append(p + "/")
+                args += all.filter { $0.hasPrefix(p + "/") && !$0.hasPrefix("-") }
+            }
+        }
         let r = run("/usr/bin/zip", args)
         // kód 12 = „nothing to do“ (např. složka neexistovala jako záznam) – v pořádku
         guard r.0 == 0 || r.0 == 12 else { throw ArchiveError.tool("Mazání ze ZIP selhalo (kód \(r.0)): \(r.1.suffix(300))") }

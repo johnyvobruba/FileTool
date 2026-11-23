@@ -81,9 +81,13 @@ final class UninstallModel: ObservableObject {
                 let n = u.lastPathComponent.lowercased()
                 let stem = n.replacingOccurrences(of: ".plist", with: "").replacingOccurrences(of: ".savedstate", with: "")
                     .replacingOccurrences(of: ".binarycookies", with: "")
-                let hit = stem == bid || stem.hasPrefix(bid + ".") || stem.hasSuffix("." + bid)
-                    || (byName && nm.count >= 3 && (n == nm || n == nm.replacingOccurrences(of: " ", with: "")))
-                if hit, !CleanFS.isProtected(u.path) { out.append(JunkItem(url: u, size: CleanFS.size(u), note: dir.replacingOccurrences(of: "~/Library/", with: "") + " / " + u.lastPathComponent)) }
+                let byID = stem == bid || stem.hasPrefix(bid + ".") || stem.hasSuffix("." + bid)
+                let byNm = !byID && byName && nm.count >= 3 && (n == nm || n == nm.replacingOccurrences(of: " ", with: ""))
+                if byID || byNm, !CleanFS.isProtected(u.path) {
+                    out.append(JunkItem(url: u, size: CleanFS.size(u),
+                                        note: dir.replacingOccurrences(of: "~/Library/", with: "") + " / " + u.lastPathComponent
+                                            + (byNm ? " – podle názvu, ověř" : "")))
+                }
             }
         }
         return out.sorted { $0.size > $1.size }
@@ -98,7 +102,8 @@ final class UninstallModel: ObservableObject {
             await MainActor.run {
                 guard self.selected == url else { return }
                 self.related = r
-                self.checkedRelated = Set(r.map(\.id))
+                // předem jen jisté shody (bundle ID); shody podle názvu může mít i jiná aplikace
+                self.checkedRelated = Set(r.filter { !$0.note.hasSuffix("podle názvu, ověř") }.map(\.id))
             }
         }
     }

@@ -481,6 +481,7 @@ struct UninstallView: View {
                                         if m.checkedRelated.contains(i.id) { m.checkedRelated.remove(i.id) } else { m.checkedRelated.insert(i.id) }
                                     }
                                     Text(i.name).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
+                                        .foregroundStyle(i.note.hasSuffix("podle názvu, ověř") ? UI.warn : UI.text)
                                     Spacer()
                                     Text(Fmt.bytes(i.size)).font(.system(size: 12).monospacedDigit()).foregroundStyle(UI.textSecondary)
                                     Button { NSWorkspace.shared.activateFileViewerSelecting([i.url]) } label: { Image(systemName: "magnifyingglass") }

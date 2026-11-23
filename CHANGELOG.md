@@ -3,6 +3,14 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.8.3
+
+Bezpečnostní úpravy podle revize Project CodeGuard:
+- **Odinstalace:** soubory nalezené jen podle názvu aplikace (ne podle bundle ID) nejsou předem zaškrtnuté a jsou označené „podle názvu, ověř“ – mohou patřit jiné aplikaci.
+- **Mazání ze ZIP** bere názvy položek doslova (`zip -nw`) – položka pojmenovaná `*` už nesmaže celý archiv; názvy začínající „-“ se odmítnou.
+- **FTPS** vyžaduje minimálně TLS 1.2.
+- **Release:** GitHub Actions připnuté na commit SHA (+ Dependabot), oprávnění jen na úrovni jobu, ke každému vydání **SBOM** a podepsaná **provenance buildu** (Sigstore – ověření `gh attestation verify FileTool-<verze>.zip -R johnyvobruba/FileTool`).
+
 ## 0.8.2
 
 - **SMB sdílení při spuštění:** u SMB serveru zaškrtni „Připojit při spuštění FileTool“ – po startu se sdílení tiše připojí (heslo z Klíčenky macOS, žádné dialogy) a jsou hned v Zařízeních v bočním panelu. Nedostupná (bez VPN) se přeskočí; ručně je připojíš z nabídky Server → „Připojit automatická SMB sdílení“.
