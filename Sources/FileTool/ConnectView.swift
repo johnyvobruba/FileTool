@@ -26,11 +26,34 @@ final class ConnectModel: ObservableObject {
         if p == "ftp", draft.ftpTLS == "implicit", portText == "21" { portText = "990" }
     }
 
+    /// Adresa vložená do pole Server (smb://user@nas/Data/Projekty, sftp://host:2222/var, \\\\nas\\Data)
+    /// se rozloží do polí protokol / server / port / uživatel / cesta.
+    private func normalize(_ c: inout RemoteConfig) {
+        var h = c.host.trimmingCharacters(in: .whitespaces)
+        if h.hasPrefix("\\\\") {                                         // Windows UNC \\server\share
+            h = "smb://" + h.dropFirst(2).replacingOccurrences(of: "\\", with: "/")
+        }
+        guard h.contains("://") || h.contains("/") || h.contains("@") else { c.host = h; return }
+        if !h.contains("://") { h = c.proto + "://" + h }
+        guard let u = URLComponents(string: h), let host = u.host, !host.isEmpty else { c.host = h; return }
+        let scheme = (u.scheme ?? c.proto).lowercased()
+        let proto = ["smb": "smb", "cifs": "smb", "sftp": "sftp", "ssh": "sftp", "scp": "scp", "ftp": "ftp", "ftps": "ftp"][scheme] ?? c.proto
+        if proto != c.proto { c.proto = proto; if scheme == "ftps" { c.ftpTLS = "implicit" } }
+        c.host = host
+        if let usr = u.user, !usr.isEmpty, c.user.isEmpty { c.user = usr.removingPercentEncoding ?? usr }
+        let defaults = ["sftp": 22, "scp": 22, "ftp": scheme == "ftps" ? 990 : 21, "smb": 445]
+        c.port = u.port ?? defaults[proto] ?? c.port
+        let p = (u.path.removingPercentEncoding ?? u.path).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if !p.isEmpty, c.path.isEmpty { c.path = proto == "smb" ? p : "/" + p }
+    }
+
     private func validated() -> RemoteConfig? {
         var c = draft
+        c.port = Int(portText.trimmingCharacters(in: .whitespaces)) ?? 0
+        normalize(&c)
+        draft = c; portText = String(c.port)                                // ukázat rozložené hodnoty
         c.host = c.host.trimmingCharacters(in: .whitespaces)
         c.user = c.user.trimmingCharacters(in: .whitespaces)
-        c.port = Int(portText.trimmingCharacters(in: .whitespaces)) ?? 0
         if let p = c.problem { problem = p; return nil }
         problem = nil
         return c
@@ -99,16 +122,16 @@ struct ConnectView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Form {
                     TextField("Název", text: $model.draft.name)
-                    TextField("Složka", text: Binding(get: { model.draft.group ?? "" },
+                    TextField("Skupina", text: Binding(get: { model.draft.group ?? "" },
                                                       set: { model.draft.group = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }),
-                              prompt: Text("např. Zákazník A/Praha"))
+                              prompt: Text("nepovinné – např. Zákazník A/Praha"))
                     Picker("Protokol", selection: Binding(get: { model.draft.proto }, set: { model.protoChanged($0) })) {
                         Text("SFTP").tag("sftp")
                         Text("SCP (zařízení bez SFTP)").tag("scp")
                         Text("FTP / FTPS").tag("ftp")
                         Text("SMB (sdílení Windows / NAS)").tag("smb")
                     }
-                    TextField("Server", text: $model.draft.host)
+                    TextField("Server", text: $model.draft.host, prompt: Text("název, IP nebo adresa (smb://…, sftp://…)"))
                     TextField("Port", text: $model.portText)
                     TextField("Uživatel", text: $model.draft.user)
                     if model.draft.proto == "ftp" {
@@ -119,7 +142,7 @@ struct ConnectView: View {
                         }
                     }
                     if model.draft.proto == "smb" {
-                        TextField("Sdílení", text: $model.draft.path, prompt: Text("např. Data nebo Data/Projekty"))
+                        TextField("Sdílení", text: $model.draft.path, prompt: Text("nepovinné – prázdné = výběr ze seznamu"))
                     } else {
                         TextField("Počáteční složka", text: $model.draft.path, prompt: Text("domovská"))
                         Toggle("Uložit heslo do Klíčenky", isOn: $model.draft.savePassword)

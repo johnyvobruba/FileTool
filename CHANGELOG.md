@@ -3,6 +3,12 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.8.1
+
+- **Adresa serveru jakkoliv:** do pole Server jde vložit i celou adresu – `smb://nas/Data/Projekty`, `\\nas\Data`, `sftp://user@host:2222/var/log`, `ftp://…` – rozloží se sama do protokolu, serveru, portu, uživatele a cesty.
+- **SMB bez názvu sdílení:** prázdné pole Sdílení = macOS po přihlášení nabídne seznam sdílení na serveru.
+- Pole „Skupina“ (dříve „Složka“) je jen pro zařazení v seznamu serverů a je nepovinné.
+
 ## 0.8.0
 
 - **SMB sdílení** (Windows, NAS) v připojení k serverům: připojí se jako disk a panel ho prochází jako běžnou složku (všechny operace F3–F8, hledání, Úklid). Heslo spravuje macOS (dialog s uložením do Klíčenky), odpojení ⏏ v bočním panelu. Import / export JSON umí `"proto": "smb"`.

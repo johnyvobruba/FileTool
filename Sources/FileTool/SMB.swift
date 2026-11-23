@@ -9,14 +9,13 @@ import NetFS
 enum SMBMount {
     /// smb://user@host[:port]/share – podsložky za sdílením se otevřou až po připojení.
     static func url(_ c: RemoteConfig) -> URL? {
-        let parts = c.path.split(separator: "/").map(String.init)
-        guard let share = parts.first else { return nil }
+        let share = c.path.split(separator: "/").first.map(String.init) ?? ""
         var comps = URLComponents()
         comps.scheme = "smb"
         comps.host = c.host
         if c.port != 445 { comps.port = c.port }
         if !c.user.isEmpty { comps.user = c.user }
-        comps.path = "/" + share
+        comps.path = "/" + share                     // bez sdílení macOS nabídne seznam sdílení serveru
         return comps.url
     }
 
@@ -32,7 +31,7 @@ enum SMBMount {
             guard let r = (try? v.resourceValues(forKeys: [.volumeURLForRemountingKey]))?.volumeURLForRemounting,
                   r.scheme?.lowercased() == "smb", r.host?.lowercased() == c.host.lowercased() else { continue }
             let rs = r.path.split(separator: "/").first.map { String($0).removingPercentEncoding ?? String($0) }?.lowercased() ?? ""
-            if rs == share { return v }
+            if rs == share || share.isEmpty { return v }
         }
         return nil
     }
@@ -43,9 +42,11 @@ enum SMBMount {
             let sub = subpath(c)
             return sub.isEmpty ? base : base.appendingPathComponent(sub, isDirectory: true)
         }
-        if let m = mounted(c) { Task { @MainActor in completion(.success(finish(m))) }; return }
+        let noShare = c.path.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).isEmpty
+        if !noShare, let m = mounted(c) { Task { @MainActor in completion(.success(finish(m))) }; return }
+        let before = Set(FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: []) ?? [])
         guard let u = url(c) else {
-            Task { @MainActor in completion(.failure(RemoteError.failed("Zadej název sdílení (např. Data)."))) }
+            Task { @MainActor in completion(.failure(RemoteError.failed("Neplatná adresa serveru."))) }
             return
         }
         DispatchQueue.global(qos: .userInitiated).async {
@@ -54,7 +55,10 @@ enum SMBMount {
             let user: CFString? = c.user.isEmpty ? nil : c.user as CFString
             let rc = NetFSMountURLSync(u as CFURL, nil, user, nil, open as CFMutableDictionary, nil, nil)
             let result: Result<URL, Error>
-            if rc == 0, let m = mounted(c) {
+            let fresh = (FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: []) ?? []).filter { !before.contains($0) }
+            if rc == 0, noShare, let m = fresh.first ?? mounted(c) {
+                result = .success(m)                    // sdílení vybrané v dialogu macOS
+            } else if rc == 0, let m = mounted(c) {
                 result = .success(finish(m))
             } else if rc == 0 {
                 result = .success(finish(URL(fileURLWithPath: "/Volumes/" + (c.path.split(separator: "/").first.map(String.init) ?? ""), isDirectory: true)))
