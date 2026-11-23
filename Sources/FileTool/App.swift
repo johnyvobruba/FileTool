@@ -97,6 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppIcon.apply()
             Updater.shared.checkOnLaunch()
             Permissions.askOnLaunchIfNeeded()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { SMBMount.autoMountAll() }
         }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

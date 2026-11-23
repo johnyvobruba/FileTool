@@ -448,6 +448,9 @@ struct ServerMenu: View {
             menuLevel([])
             if !store.configs.isEmpty { Divider() }
             Button("Připojit k serveru… (⌘K)") { commander.focus(side); commander.connectDialog() }
+            if store.configs.contains(where: { $0.proto == "smb" && $0.autoMount == true }) {
+                Button("Připojit automatická SMB sdílení") { SMBMount.autoMountAll(interactive: true) }
+            }
             if tab.remote != nil {
                 Button("Odpojit (⇧⌘K)") { commander.focus(side); commander.disconnect() }
             }

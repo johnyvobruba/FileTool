@@ -69,6 +69,7 @@ struct RemoteConfig: Codable, Identifiable, Hashable {
     var savePassword = false
     var path = ""               // počáteční složka (prázdné = domovská)
     var group: String? = nil    // složka v nabídce Server (import ze SSHTool / JSON)
+    var autoMount: Bool? = nil  // SMB: připojit při spuštění FileTool
 
     var title: String { name.isEmpty ? (user.isEmpty ? host : "\(user)@\(host)") : name }
     var dest: String { user.isEmpty ? host : "\(user)@\(host)" }

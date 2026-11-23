@@ -89,12 +89,29 @@ struct ConnectView: View {
     @ObservedObject var model: ConnectModel
     @ObservedObject var store = RemoteStore.shared
 
+    /// Skupiny serverů včetně nadřazených úrovní (A, A/B…), abecedně.
+    private var allGroups: [String] {
+        var s = Set<String>()
+        for c in store.configs {
+            let parts = ServerTree.parts(c)
+            for i in parts.indices { s.insert(parts[...i].joined(separator: "/")) }
+        }
+        return s.sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+    /// Skupiny pro seznam vlevo (bez skupiny nahoře).
+    private var groupNames: [String] {
+        let g = Set(store.configs.map { $0.group ?? "" })
+        return g.sorted { a, b in a.isEmpty != b.isEmpty ? a.isEmpty : a.localizedStandardCompare(b) == .orderedAscending }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Uložené servery").font(.system(size: 11, weight: .semibold)).foregroundColor(.secondary)
                 List {
-                    ForEach(store.configs) { c in
+                    ForEach(groupNames, id: \.self) { g in
+                    Section(g.isEmpty ? "Bez skupiny" : g) {
+                    ForEach(store.configs.filter { ($0.group ?? "") == g }) { c in
                         Button { model.pick(c) } label: {
                             HStack {
                                 Image(systemName: c.proto == "smb" ? "externaldrive.connected.to.line.below" : c.proto == "ftp" ? "tray.and.arrow.down" : "lock.shield")
@@ -110,6 +127,8 @@ struct ConnectView: View {
                         .padding(.vertical, 2)
                         .listRowBackground(model.selected == c.id ? Color.accentColor.opacity(0.25) : Color.clear)
                     }
+                    }
+                    }
                 }
                 .frame(width: 210)
                 HStack {
@@ -122,9 +141,24 @@ struct ConnectView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Form {
                     TextField("Název", text: $model.draft.name)
-                    TextField("Skupina", text: Binding(get: { model.draft.group ?? "" },
-                                                      set: { model.draft.group = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }),
-                              prompt: Text("nepovinné – např. Zákazník A/Praha"))
+                    HStack(spacing: 6) {
+                        TextField("Skupina", text: Binding(get: { model.draft.group ?? "" },
+                                                          set: { model.draft.group = $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }),
+                                  prompt: Text("nepovinné – vyber nebo napiš novou"))
+                        Menu {
+                            Button("Bez skupiny") { model.draft.group = nil }
+                            if !allGroups.isEmpty { Divider() }
+                            ForEach(allGroups, id: \.self) { g in
+                                Button {
+                                    model.draft.group = g
+                                } label: {
+                                    if model.draft.group == g { Label(g, systemImage: "checkmark") } else { Text(g) }
+                                }
+                            }
+                        } label: { Image(systemName: "folder") }
+                        .menuStyle(.borderlessButton).fixedSize()
+                        .tip("Vybrat existující skupinu (podskupina: Zákazník A/Praha)")
+                    }
                     Picker("Protokol", selection: Binding(get: { model.draft.proto }, set: { model.protoChanged($0) })) {
                         Text("SFTP").tag("sftp")
                         Text("SCP (zařízení bez SFTP)").tag("scp")
@@ -143,6 +177,9 @@ struct ConnectView: View {
                     }
                     if model.draft.proto == "smb" {
                         TextField("Sdílení", text: $model.draft.path, prompt: Text("nepovinné – prázdné = výběr ze seznamu"))
+                        Toggle("Připojit při spuštění FileTool", isOn: Binding(get: { model.draft.autoMount == true },
+                                                                             set: { model.draft.autoMount = $0 ? true : nil }))
+                            .tip("Tiše se připojí s heslem uloženým v Klíčence macOS – při prvním připojení zaškrtni v dialogu „Uložit heslo do Klíčenky“. Nedostupné sdílení se přeskočí.")
                     } else {
                         TextField("Počáteční složka", text: $model.draft.path, prompt: Text("domovská"))
                         Toggle("Uložit heslo do Klíčenky", isOn: $model.draft.savePassword)

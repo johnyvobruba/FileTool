@@ -37,7 +37,7 @@ enum SMBMount {
     }
 
     /// Připojí (nebo najde připojené) a vrátí složku k otevření v panelu.
-    static func mount(_ c: RemoteConfig, completion: @escaping @MainActor (Result<URL, Error>) -> Void) {
+    static func mount(_ c: RemoteConfig, interactive: Bool = true, completion: @escaping @MainActor (Result<URL, Error>) -> Void) {
         func finish(_ base: URL) -> URL {
             let sub = subpath(c)
             return sub.isEmpty ? base : base.appendingPathComponent(sub, isDirectory: true)
@@ -51,7 +51,7 @@ enum SMBMount {
         }
         DispatchQueue.global(qos: .userInitiated).async {
             let open = NSMutableDictionary()
-            open["UIOption"] = "AllowUI"                       // kNAUIOptionKey / kNAUIOptionAllowUI – dialog pro heslo
+            open["UIOption"] = interactive ? "AllowUI" : "NoUI"   // NoUI = jen s heslem uloženým v Klíčence, bez dialogu
             let user: CFString? = c.user.isEmpty ? nil : c.user as CFString
             let rc = NetFSMountURLSync(u as CFURL, nil, user, nil, open as CFMutableDictionary, nil, nil)
             let result: Result<URL, Error>
@@ -76,5 +76,35 @@ enum SMBMount {
             }
             Task { @MainActor in completion(result) }
         }
+    }
+}
+
+extension SMBMount {
+    /// Při spuštění: tiše připojí SMB sdílení označená „Připojit při spuštění“ (heslo z Klíčenky macOS,
+    /// bez dialogů). Nedostupná (bez VPN, mimo síť) se přeskočí; ručně je připojíš z nabídky Server.
+    @MainActor static func autoMountAll(interactive: Bool = false) {
+        let list = RemoteStore.shared.configs.filter { $0.proto == "smb" && $0.autoMount == true }
+        guard !list.isEmpty else { return }
+        func next(_ i: Int, failed: [String]) {
+            guard i < list.count else {
+                SidebarModel.shared.reloadVolumes()
+                if interactive, !failed.isEmpty {
+                    let a = NSAlert()
+                    a.messageText = "Některá sdílení se nepřipojila"
+                    a.informativeText = failed.joined(separator: "\n")
+                    a.runModal()
+                }
+                return
+            }
+            let c = list[i]
+            if !c.path.isEmpty, mounted(c) != nil { next(i + 1, failed: failed); return }
+            mount(c, interactive: interactive) { r in
+                var f = failed
+                if case .failure(let e) = r { f.append("\(c.title): \(e.localizedDescription)") }
+                SidebarModel.shared.reloadVolumes()
+                next(i + 1, failed: f)
+            }
+        }
+        next(0, failed: [])
     }
 }

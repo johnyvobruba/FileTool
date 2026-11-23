@@ -497,7 +497,7 @@ struct SettingsServersPane: View {
                 SKRow("Zatím žádné uložené připojení", help: "Přidáš ho v dialogu Připojit k serveru (⌘K).", first: true) { EmptyView() }
             }
             ForEach(Array(store.configs.enumerated()), id: \.element.id) { i, c in
-                SKRow(c.title, help: (c.group.map { $0 + " · " } ?? "") + "\(c.scheme)://\(c.dest):\(c.port)" + (c.savePassword ? " · heslo v Klíčence" : ""), first: i == 0) {
+                SKRow(c.title, help: (c.group.map { $0 + " · " } ?? "") + "\(c.scheme)://\(c.dest):\(c.port)" + (c.savePassword ? " · heslo v Klíčence" : "") + (c.autoMount == true ? " · připojit při spuštění" : ""), first: i == 0) {
                     Button("Smazat") { store.remove(c) }.buttonStyle(SKButton(kind: .danger))
                         .tip("Smaže uložené připojení i jeho heslo z Klíčenky")
                 }
@@ -522,7 +522,7 @@ struct SettingsServersPane: View {
                 Button("Exportovat…") { RemoteImport.exportPanel() }.buttonStyle(SKButton()).disabled(store.configs.isEmpty)
             }
         }
-        SKSection("Vzor JSON pro kolegy", subtitle: "Pole: name, proto (sftp / scp / ftp), host, port, user, group, path, ftpTLS (explicit / implicit / \"\"). Adresy ve vzoru jsou z dokumentačních rozsahů (RFC 5737).") {
+        SKSection("Vzor JSON pro kolegy", subtitle: "Pole: name, proto (sftp / scp / ftp / smb), host, port, user, group, path, ftpTLS (explicit / implicit / \"\"). Adresy ve vzoru jsou z dokumentačních rozsahů (RFC 5737).") {
             HStack {
                 Button { RemoteImport.copyTemplate() } label: { Label("Kopírovat vzor", systemImage: "doc.on.doc") }.buttonStyle(SKButton())
                 Spacer()

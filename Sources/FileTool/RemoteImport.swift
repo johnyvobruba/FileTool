@@ -45,6 +45,7 @@ enum RemoteImport {
             c.ftpTLS = ["", "explicit", "implicit"].contains(tls) ? tls : "explicit"
         }
         c.savePassword = false                                   // hesla se neimportují
+        if c.proto == "smb", o["autoMount"] as? Bool == true { c.autoMount = true }
         guard c.problem == nil else { return nil }
         return c
     }
@@ -123,6 +124,7 @@ enum RemoteImport {
             if c.proto == "ftp" { o["ftpTLS"] = c.ftpTLS }
             if !c.path.isEmpty { o["path"] = c.path }
             if let g = c.group { o["group"] = g }
+            if c.autoMount == true { o["autoMount"] = true }
             return o
         }
         do {

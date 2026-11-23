@@ -3,6 +3,11 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.8.2
+
+- **SMB sdílení při spuštění:** u SMB serveru zaškrtni „Připojit při spuštění FileTool“ – po startu se sdílení tiše připojí (heslo z Klíčenky macOS, žádné dialogy) a jsou hned v Zařízeních v bočním panelu. Nedostupná (bez VPN) se přeskočí; ručně je připojíš z nabídky Server → „Připojit automatická SMB sdílení“.
+- **Výběr skupiny:** v dialogu ⌘K je u pole Skupina nabídka existujících skupin (i podskupin); novou stačí napsat. Seznam uložených serverů vlevo je rozdělený podle skupin.
+
 ## 0.8.1
 
 - **Adresa serveru jakkoliv:** do pole Server jde vložit i celou adresu – `smb://nas/Data/Projekty`, `\\nas\Data`, `sftp://user@host:2222/var/log`, `ftp://…` – rozloží se sama do protokolu, serveru, portu, uživatele a cesty.
