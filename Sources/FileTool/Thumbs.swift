@@ -76,12 +76,12 @@ struct ThumbCell: View {
             .frame(width: size, height: size)
             Text(item.isParent ? ".." : item.name)
                 .font(.system(size: 11, weight: marked ? .semibold : .regular))
-                .foregroundStyle(marked ? Color(nsColor: UI.NS.marked) : item.isDir || item.isParent ? Color(nsColor: UI.NS.dir) : UI.text)
+                .foregroundStyle(marked ? Color(nsColor: UI.NS.marked) : item.isDir || item.isParent ? Color(nsColor: UI.NS.dir) : UI.listText)
                 .lineLimit(2).multilineTextAlignment(.center).truncationMode(.middle)
                 .frame(width: size, height: 28, alignment: .top)
         }
         .padding(6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(cursor ? (active ? UI.rowSelected : UI.hover) : Color.clear))
+        .background(RoundedRectangle(cornerRadius: 8).fill(cursor ? Color(nsColor: active ? UI.NS.cursor : UI.NS.cursorInactive) : Color.clear))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(marked ? Color(nsColor: UI.NS.marked) : cursor && active ? UI.accent : Color.clear,
                                                          lineWidth: marked ? 2 : 1.5))
         .contentShape(Rectangle())

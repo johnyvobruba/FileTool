@@ -58,7 +58,7 @@ struct FileTable: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let t = FileTableNSView()
         t.side = side
-        t.headerView = NSTableHeaderView()
+        t.headerView = ThemedHeaderView()
         t.usesAlternatingRowBackgroundColors = false
         t.allowsMultipleSelection = false
         t.allowsEmptySelection = false
@@ -71,6 +71,7 @@ struct FileTable: NSViewRepresentable {
         for (id, title, w) in [("name", "Název", 260.0), ("ext", "Přípona", 60.0), ("size", "Velikost", 90.0),
                                ("date", "Datum", 118.0), ("attr", "Atributy", 86.0)] {
             let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
+            c.headerCell = ThemedHeaderCell(textCell: title)
             c.title = title
             c.width = w
             c.minWidth = id == "name" ? 120 : 40
@@ -435,4 +436,31 @@ final class FileCell: NSTableCellView {
         leadingWithIcon.isActive = icon != nil
         leadingPlain.isActive = icon == nil
     }
+}
+
+// MARK: - Záhlaví tabulky v barvách profilu (místo systémové šedé)
+
+/// Plocha záhlaví za sloupci.
+final class ThemedHeaderView: NSTableHeaderView {
+    override func draw(_ dirtyRect: NSRect) {
+        UI.NS.headerBG.setFill(); dirtyRect.fill()
+        super.draw(dirtyRect)
+    }
+}
+
+/// Buňka záhlaví: podklad, oddělovače a text podle profilu (u světlé plochy světlé záhlaví s tmavým textem).
+final class ThemedHeaderCell: NSTableHeaderCell {
+    override func draw(withFrame f: NSRect, in v: NSView) {
+        UI.NS.headerBG.setFill(); f.fill()
+        UI.NS.headerLine.setFill()
+        NSRect(x: f.maxX - 1, y: f.minY + 5, width: 1, height: max(0, f.height - 10)).fill()
+        NSRect(x: f.minX, y: v.isFlipped ? f.maxY - 1 : f.minY, width: f.width, height: 1).fill()
+        let p = NSMutableParagraphStyle(); p.alignment = alignment; p.lineBreakMode = .byTruncatingTail
+        let s = NSAttributedString(string: stringValue, attributes: [
+            .font: NSFont.systemFont(ofSize: 11.5, weight: .semibold),
+            .foregroundColor: UI.NS.headerText, .paragraphStyle: p])
+        let h = s.size().height
+        s.draw(in: NSRect(x: f.minX + 5, y: f.midY - h / 2, width: f.width - 12, height: h))
+    }
+    override func drawFocusRingMask(withFrame cellFrame: NSRect, in controlView: NSView) {}
 }

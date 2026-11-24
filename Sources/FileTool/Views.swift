@@ -45,7 +45,7 @@ struct MainView: View {
                     .padding(.horizontal, 6).padding(.bottom, 4)
             }
             CommandLineBar(commander: commander)
-                .glassCard(radius: 8, fill: UI.list.opacity(0.9))
+                .glassCard(radius: 8, fill: UI.surface.opacity(0.9))
                 .padding(.horizontal, 6)
             FunctionKeyBar(commander: commander)
                 .padding(.horizontal, 6).padding(.vertical, 5)
@@ -239,11 +239,11 @@ struct PanelTabChip: View {
         .padding(.leading, 7).padding(.trailing, closable ? 2 : 7)
         .frame(height: 20)
         .fixedSize(horizontal: true, vertical: false)
-        .background(RoundedRectangle(cornerRadius: 5).fill(active ? UI.cardSelected : UI.card))
+        .background(RoundedRectangle(cornerRadius: 5).fill(Modern.tabFill(active, inactive: UI.card)))
         .overlay(alignment: .bottom) {
-            Rectangle().fill(UI.accent).frame(height: 2).padding(.horizontal, 5).opacity(active ? 1 : 0)
+            Rectangle().fill(Modern.tabIndicator).frame(height: 2).padding(.horizontal, 5).opacity(active ? 1 : 0)
         }
-        .foregroundStyle(active ? UI.text : UI.textSecondary)
+        .foregroundStyle(active ? Modern.tabText(true, UI.text) : UI.textSecondary)
         .contentShape(Rectangle())
         .onTapGesture(perform: select)
         .tip(tab.dir.path)
@@ -469,7 +469,7 @@ struct OutputSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(8)
-            .background(RoundedRectangle(cornerRadius: 6).fill(UI.list))
+            .background(RoundedRectangle(cornerRadius: 6).fill(UI.surface))
             HStack {
                 Spacer()
                 if out.running { Button("Zastavit") { out.stop() } }

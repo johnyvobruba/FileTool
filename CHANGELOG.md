@@ -3,6 +3,18 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.13.0
+
+- **Nový barevný profil Neon Orchid** – křiklavá růžovofialová: sytě fialová navigace a horní lišta s výrazným přechodem fialová → neonově růžová, světlé pracovní plochy (seznam souborů, náhledy, příkazový řádek) s tmavým textem. Funguje se stylem Výrazný i Jemný.
+- Profily se světlou plochou a tmavými lištami mají v seznamu souborů čitelné tlumené sloupce (velikost, datum), skryté soubory a kurzor.
+- **Neon Orchid podle přesné specifikace barev:** hlavní pozadí #281235, sidebar #30143F, horní lišta s přechodem #482064 → #96358D, aktivní záložka ve světlém přechodu #E7C6FA → #CF9FEE s tmavým textem, vybraný server v přechodu #8C28BD → #70209C, akcent a kurzor #922DD0, světlejší stavové tečky (#67DA91 / #F1BF69 / #FF829D). Pracovní plocha zůstává jednolitá #F7F3FA s tmavým švestkovým textem, přechody jen v lištách, aktivních prvcích a ikonách.
+- Seznam souborů v Neon Orchid: výběr #E4C5F5, neaktivní výběr #E9DFEF, sekundární text #705D7D, oddělovače #DED0E8, složky #345DA8, archivy #795096, spustitelné #28663A.
+- Úklid v Neon Orchid: tmavá lišta modulů, světlá plocha s kartami (#EFE5F7 / #FCF9FE, rámeček #DDC9EB), úvodní panel v přechodu #60218C → #A42A87 s bílým textem, růžové hlavní tlačítko #BC167E → #9C146F, sekundární tlačítka #EBDCF4.
+- **Nový barevný profil Anthracite Steel** – antracit, grafit a ocelově šedá se stříbrnými akcenty, světle šedá pracovní plocha #F2F3F4. Neutrálnější než Midnight Graphite, ale s výraznými přechody: horní lišta #303336 → #565B60, aktivní záložka ve stříbrném přechodu #E1E4E7 → #BEC4CA s tmavým textem a proužkem #59636D, vybraný server v grafitovém přechodu #555E67 → #424A52 se světlým levým proužkem #D9DFE5, stavové tečky #74D39A / #E8BE73 / #F08B94.
+  Úklid: grafitový úvodní panel #303438 → #626B74 se stříbrným tlačítkem Prohledat (#E3E7EB → #BCC4CC, tmavý text), na světlé ploše grafitová hlavní tlačítka (#505A64 → #38414A), jednotné prostorové dlaždice modulů #74808C → #414B55 s odleskem #AEB8C2. Složky #426894, archivy #746080, spustitelné #2D6847.
+- Hlavní tlačítka v Úklidu reagují na najetí myší (Neon Orchid #CD208E → #AD187D, Anthracite stříbrnější).
+- Záhlaví sloupců v seznamu souborů v barvách profilu místo systémové šedé (u Neon Orchid a Anthracite Steel světlé s tmavým textem).
+
 ## 0.12.0
 
 - **Barevný profil přebarví celé rozhraní** – každý z 8 profilů má vlastní navigaci, horní lištu a dvoubarevný přechod pro aktivní prvky (Midnight Graphite: ocelově modrá → modrá, Tokyo Night: modrá → fialová, Nord Frost: petrolejová → ledově modrá, Catppuccin Mocha: levandulová → pastelově růžová, Emerald Terminal: smaragdová → tyrkysová, Walnut: měděná → jantarová, Sandstone: bronzová → medová, Arctic Light: královská → azurová). Aktivní záložka/panel s rámečkem v přechodu profilu, navigace v barvě profilu.

@@ -64,21 +64,32 @@ enum UI {
     static var ok: SwiftUI.Color            { hex(t.statusConnected) }
     static var warn: SwiftUI.Color          { hex(t.statusConnecting) }
     static var error: SwiftUI.Color         { hex(t.statusError) }
+    /// Text na ploše seznamu (u profilů se světlou plochou a tmavými lištami tmavý).
+    static var listText: SwiftUI.Color      { t.mixedContent ? hex(t.foreground) : text }
+    /// Barvy světlé plochy profilu (jen u profilů s tmavými lištami a světlým obsahem).
+    static var light: LightSurface?         { t.mixedContent ? Modern.brand.light : nil }
+    /// Podklad pro pole s textem v barvách lišt (příkazový řádek, výstup) – u světlé plochy tmavší karta.
+    static var surface: SwiftUI.Color       { t.mixedContent ? card : list }
 
     // AppKit varianty pro tabulku souborů
     enum NS {
         private static var t: Theme { ThemeStore.ui }
         static var list: NSColor        { .hex(t.background) }
         static var text: NSColor        { .hex(t.foreground) }
-        static var textDim: NSColor     { .hex(t.textSecondary) }
+        static var textDim: NSColor     { UI.light.map { NSColor.hex($0.text2) } ?? (t.mixedContent ? mix(t.foreground, t.background, 0.42) : .hex(t.textSecondary)) }
         static var dir: NSColor         { .hex(t.ansiBright[4]) }           // složky (modrá z palety)
         static var marked: NSColor      { .hex(t.ansiBright[1]) }           // označené (červená jako v TC)
-        static var cursor: NSColor      { .hex(t.itemSelectedBackground) }
-        static var cursorInactive: NSColor { .hex(t.itemHoverBackground) }
+        static var cursor: NSColor      { .hex(t.mixedContent ? t.selectionBackground : t.itemSelectedBackground) }
+        static var cursorInactive: NSColor { UI.light.map { NSColor.hex($0.inactiveSel) } ?? (t.mixedContent ? mix(t.selectionBackground, t.background, 0.55) : .hex(t.itemHoverBackground)) }
         static var accent: NSColor      { .hex(t.accentColor) }
         static var header: NSColor      { .hex(t.toolbarBackground) }
-        static var grid: NSColor        { .hex(t.borderColor) }
-        static var hidden: NSColor      { .hex(t.textTertiary) }
+        /// Záhlaví sloupců: u světlé plochy (Neon Orchid, Anthracite) světlé s tmavým textem.
+        static var headerBG: NSColor    { UI.light.map { NSColor.hex($0.statCard) } ?? .hex(t.toolbarBackground) }
+        static var headerText: NSColor  { UI.light.map { NSColor.hex($0.text) } ?? .hex(t.textSecondary) }
+        static var headerLine: NSColor  { UI.light.map { NSColor.hex($0.line) } ?? .hex(t.borderColor) }
+        static var grid: NSColor        { UI.light.map { NSColor.hex($0.line) } ?? .hex(t.borderColor) }
+        static var hidden: NSColor      { t.mixedContent ? mix(t.foreground, t.background, 0.58) : .hex(t.textTertiary) }
+        private static func mix(_ a: String, _ b: String, _ f: CGFloat) -> NSColor { NSColor.hex(a).blended(withFraction: f, of: .hex(b)) ?? .hex(a) }
         static var exec: NSColor        { .hex(t.ansiBright[2]) }           // spustitelné (zelená)
         static var archive: NSColor     { .hex(t.ansiBright[5]) }           // archivy (fialová)
     }

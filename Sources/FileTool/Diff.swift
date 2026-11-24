@@ -181,7 +181,7 @@ struct DiffView: View {
                     .onChange(of: m.current) { c in withAnimation { proxy.scrollTo(c, anchor: .center) } }
                     .onAppear { proxy.scrollTo(m.current, anchor: .center) }
                 }
-                .background(UI.list)
+                .background(UI.surface)
             }
             HStack(spacing: 12) {
                 let s = m.stats

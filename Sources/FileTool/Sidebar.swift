@@ -220,7 +220,7 @@ struct SidebarView: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: symbol).font(.system(size: 12)).frame(width: 16)
-                    .foregroundStyle(current ? UI.accent : UI.textSecondary)
+                    .foregroundStyle(Modern.selIcon(current, normal: UI.accent, off: UI.textSecondary))
                 Text(title).font(.system(size: 12.5, weight: current ? .semibold : .regular))
                     .foregroundStyle(UI.text).lineLimit(1).truncationMode(.middle)
                 if let detail {
@@ -229,7 +229,11 @@ struct SidebarView: View {
                 Spacer(minLength: 24)
             }
             .padding(.horizontal, 8).frame(height: 26)
-            .background(RoundedRectangle(cornerRadius: 6).fill(current ? UI.rowSelected : SwiftUI.Color.clear))
+            .background(RoundedRectangle(cornerRadius: 6).fill(Modern.selFill(current, normal: UI.rowSelected)))
+            .overlay(alignment: .leading) {      // proužek u profilů, kde výběr musí být zřetelnější (Anthracite)
+                RoundedRectangle(cornerRadius: 2).fill(Modern.selStripe).frame(width: 3).padding(.vertical, 4)
+                    .opacity(current && Modern.brand.selStripe != nil ? 1 : 0)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

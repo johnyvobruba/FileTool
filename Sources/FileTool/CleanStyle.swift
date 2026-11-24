@@ -10,20 +10,33 @@ enum C {
     nonisolated(unsafe) static var module: CleanModule = .smart
     private static var t: Theme { ThemeStore.ui }
     static var dark: Bool { t.isDark }
+    /// Profil s tmavými lištami a světlou plochou (Neon Orchid): Úklid má tmavou lištu modulů,
+    /// světlou jednolitou plochu s kartami a barevný úvodní panel.
+    static var L: LightSurface? { t.mixedContent ? Modern.brand.light : nil }
 
-    static var text: SwiftUI.Color { UI.text }
-    static var text2: SwiftUI.Color { UI.textSecondary }
-    static var text3: SwiftUI.Color { UI.textTertiary }
-    static var card: SwiftUI.Color { dark ? .white.opacity(0.07) : .white.opacity(0.62) }
-    static var cardStrong: SwiftUI.Color { dark ? .white.opacity(0.13) : .white.opacity(0.88) }
-    static var border: SwiftUI.Color { dark ? .white.opacity(0.13) : .black.opacity(0.09) }
-    static var hover: SwiftUI.Color { dark ? .white.opacity(0.10) : Modern.gradA.opacity(0.10) }
-    static var selected: SwiftUI.Color { dark ? .white.opacity(0.15) : Modern.gradA.opacity(0.16) }
+    static var text: SwiftUI.Color { L.map { hex($0.text) } ?? UI.text }
+    static var text2: SwiftUI.Color { L.map { hex($0.text2) } ?? UI.textSecondary }
+    static var text3: SwiftUI.Color { L.map { hex($0.icon) } ?? UI.textTertiary }
+    static var card: SwiftUI.Color { L.map { hex($0.resultCard) } ?? (dark ? .white.opacity(0.07) : .white.opacity(0.62)) }
+    static var cardStrong: SwiftUI.Color { L.map { hex($0.statCard) } ?? (dark ? .white.opacity(0.13) : .white.opacity(0.88)) }
+    static var border: SwiftUI.Color { L.map { hex($0.cardStroke) } ?? (dark ? .white.opacity(0.13) : .black.opacity(0.09)) }
+    static var hover: SwiftUI.Color { L.map { hex($0.hover) } ?? (dark ? .white.opacity(0.10) : Modern.gradA.opacity(0.10)) }
+    static var selected: SwiftUI.Color { L != nil ? hex(t.selectionBackground) : (dark ? .white.opacity(0.15) : Modern.gradA.opacity(0.16)) }
     static var rail: SwiftUI.Color {
-        Modern.blend(t.sidebarBackground, Modern.brand.nav, Brand.vivid ? 0.85 : 0.4).opacity(dark ? 0.92 : 0.8)
+        if L != nil { return hex(t.sidebarBackground) }
+        return Modern.blend(t.sidebarBackground, Modern.brand.nav, Brand.vivid ? 0.85 : 0.4).opacity(dark ? 0.92 : 0.8)
     }
+    // lišta modulů (u Neon Orchid tmavá i při světlé ploše)
+    static var railText: SwiftUI.Color { L != nil ? UI.text : text }
+    static var railText2: SwiftUI.Color { L != nil ? UI.textSecondary : text2 }
+    static var railSelected: SwiftUI.Color { L != nil ? hex(Modern.brand.sel?.0 ?? t.itemSelectedBackground) : selected }
+    static var railCard: SwiftUI.Color { L != nil ? .white.opacity(0.08) : card }
+    // úvodní panel (u Neon Orchid přechod #60218C → #A42A87 s bílým textem)
+    static var heroOn: Bool { L != nil && Modern.brand.hero != nil }
+    static var heroText: SwiftUI.Color { heroOn ? .white : text }
+    static var heroText2: SwiftUI.Color { heroOn ? hex(Modern.brand.heroText2 ?? "#FFFFFF") : text2 }
     static var clear: SwiftUI.Color { .clear }
-    static var accent: SwiftUI.Color { UI.accent }
+    static var accent: SwiftUI.Color { L?.accent.map { hex($0) } ?? UI.accent }
 
     static func hex(_ h: String) -> SwiftUI.Color { SwiftUI.Color(hex: h) ?? .gray }
 }
@@ -45,6 +58,7 @@ extension CleanModule {
     /// (horní, dolní barva pozadí okna, odstín modulu) – pozadí je stejné pro všechny moduly, podle profilu.
     var palette: (top: SwiftUI.Color, bottom: SwiftUI.Color, accent: SwiftUI.Color) {
         let t = ThemeStore.ui, b = Modern.brand, v = Brand.vivid
+        if t.mixedContent { return (C.hex(t.background), C.hex(t.background), C.hex(hue)) }   // jednolitá světlá plocha
         if t.isDark {
             return (Modern.blend(b.nav, b.a, v ? 0.34 : 0.14), Modern.blend(t.appBackground, b.b, v ? 0.26 : 0.10), C.hex(hue))
         }
@@ -59,9 +73,21 @@ extension CleanModule {
 struct GlassButton: ButtonStyle {
     var prominent = false
     var danger = false
-    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
+        GlassButtonBody(configuration: configuration, prominent: prominent, danger: danger)
+    }
+}
+
+/// Tělo tlačítka – samostatný pohled kvůli stavu najetí myší (bez @State).
+struct GlassButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    let prominent: Bool
+    let danger: Bool
+    @Environment(\.isEnabled) private var isEnabled
+    @StateObject private var hover = HoverModel()
+
+    var body: some View {
         configuration.label
             .font(.system(size: 12.5, weight: .semibold))
             .lineLimit(1)
@@ -69,16 +95,31 @@ struct GlassButton: ButtonStyle {
             .frame(height: 32)
             .background {
                 if prominent {
-                    Capsule().fill(Modern.accentGradient)
-                        .shadow(color: Modern.gradB.opacity(Brand.vivid ? 0.45 : 0), radius: 6, y: 2)
+                    Capsule().fill(Modern.primaryGradient(hover: hover.on && isEnabled))
+                        .shadow(color: (Modern.brand.primary.map { C.hex($0.0) } ?? Modern.gradB).opacity(Brand.vivid ? 0.45 : 0), radius: 6, y: 2)
                 } else {
-                    Capsule().fill(danger ? SwiftUI.Color.red.opacity(0.6) : C.cardStrong)
+                    Capsule().fill(danger ? SwiftUI.Color.red.opacity(0.6) : (C.L.map { C.hex($0.secondaryFill) } ?? C.cardStrong))
                 }
             }
             .overlay(Capsule().stroke(prominent ? SwiftUI.Color.white.opacity(Brand.vivid ? 0.22 : 0) : C.border, lineWidth: 1))
-            .foregroundStyle(prominent ? Modern.onGrad : danger ? SwiftUI.Color.white : C.text)
+            .foregroundStyle(prominent ? Modern.primaryText : danger ? SwiftUI.Color.white : (C.L.map { C.hex($0.secondaryText) } ?? C.text))
             .opacity(!isEnabled ? 0.45 : configuration.isPressed ? 0.75 : 1)
             .contentShape(Capsule())
+            .onHover { hover.on = $0 }
+    }
+}
+
+/// Úvodní panel Úklidu (jen u profilů s přesným přechodem, např. Neon Orchid).
+struct HeroPanel: View {
+    var body: some View {
+        if C.heroOn, let h = Modern.brand.hero {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(LinearGradient(colors: Brand.vivid ? [C.hex(h.0), C.hex(h.1)] : [C.hex(h.0), Modern.blend(h.0, h.1, 0.5)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .shadow(color: C.hex(h.1).opacity(Brand.vivid ? 0.35 : 0.15), radius: 14, y: 4)
+        } else {
+            SwiftUI.Color.clear
+        }
     }
 }
 

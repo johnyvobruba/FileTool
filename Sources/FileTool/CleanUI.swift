@@ -76,7 +76,7 @@ enum CleanupWindow {
     nonisolated(unsafe) private static var themeObserver: NSObjectProtocol?
 
     private static func build(_ w: NSWindow, _ h: CleanHub) {
-        let dark = ThemeStore.ui.isDark
+        let dark = ThemeStore.ui.isDark && !ThemeStore.ui.mixedContent      // Neon Orchid: světlá plocha
         w.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         w.contentView = NSHostingView(rootView: CleanRootView(hub: h).preferredColorScheme(dark ? .dark : .light))
     }
@@ -167,11 +167,11 @@ struct CleanRootView: View {
                     HStack(spacing: 10) {
                         TileIcon(symbol: m.icon, hue: m.hue, size: 28, glow: on)
                         Text(m.title).font(.system(size: 12.5, weight: on ? .semibold : .regular))
-                            .foregroundStyle(on ? C.text : C.text2)
+                            .foregroundStyle(on ? C.railText : C.railText2)
                         Spacer()
                     }
                     .padding(.horizontal, 8).frame(height: 40)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(on ? C.selected : .clear))
+                    .background(RoundedRectangle(cornerRadius: 10).fill(on ? C.railSelected : .clear))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -182,16 +182,16 @@ struct CleanRootView: View {
                     Label("Omezený přístup", systemImage: "lock.trianglebadge.exclamationmark").font(.system(size: 11.5, weight: .semibold))
                         .foregroundStyle(.yellow)
                     Text("Bez Plného přístupu k disku nevidí FileTool Koš, Mail a další složky.")
-                        .font(.system(size: 10.5)).foregroundStyle(C.text2).fixedSize(horizontal: false, vertical: true)
+                        .font(.system(size: 10.5)).foregroundStyle(C.railText2).fixedSize(horizontal: false, vertical: true)
                     Button("Nastavit přístup…") { Permissions.guide() }.buttonStyle(GlassButton())
                 }
                 .padding(10)
-                .background(RoundedRectangle(cornerRadius: 12).fill(C.card))
+                .background(RoundedRectangle(cornerRadius: 12).fill(C.railCard))
             }
             if let b = boot {
                 VStack(alignment: .leading, spacing: 5) {
-                    Label("Macintosh HD", systemImage: "internaldrive").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(C.text)
-                    Text("\(Fmt.bytes(b.free)) volných").font(.system(size: 10.5)).foregroundStyle(C.text2)
+                    Label("Macintosh HD", systemImage: "internaldrive").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(C.railText)
+                    Text("\(Fmt.bytes(b.free)) volných").font(.system(size: 10.5)).foregroundStyle(C.railText2)
                 }
                 .padding(10)
             }
@@ -211,12 +211,14 @@ struct BigActionButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().fill(LinearGradient(colors: [Modern.gradA, Modern.gradB], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .shadow(color: Modern.gradB.opacity(Brand.vivid ? 0.5 : 0.2), radius: Brand.vivid ? 16 : 8)
+                Circle().fill(Modern.brand.primary == nil
+                              ? LinearGradient(colors: [Modern.gradA, Modern.gradB], startPoint: .topLeading, endPoint: .bottomTrailing)
+                              : Modern.primaryGradient(onDark: C.heroOn))
+                    .shadow(color: (Modern.brand.primary.map { C.hex($0.0) } ?? Modern.gradB).opacity(Brand.vivid ? 0.5 : 0.2), radius: Brand.vivid ? 16 : 8)
                 Circle().fill(LinearGradient(colors: [.white.opacity(Brand.vivid ? 0.28 : 0.08), .clear], startPoint: .top, endPoint: .center))
                     .padding(3)
-                if running { ProgressView().controlSize(.large).tint(Modern.onGrad) }
-                else { Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(Modern.onGrad) }
+                if running { ProgressView().controlSize(.large).tint(Modern.primaryText(onDark: C.heroOn)) }
+                else { Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(Modern.primaryText(onDark: C.heroOn)) }
             }
             .frame(width: 120, height: 120)
         }
@@ -287,16 +289,22 @@ struct SmartScanView: View {
         VStack(spacing: 22) {
             if !scanned && !running {
                 Spacer()
-                ZStack {
-                    Circle().fill(RadialGradient(colors: [Modern.gradB.opacity(Brand.vivid ? 0.5 : 0.25), .clear], center: .center, startRadius: 4, endRadius: 140))
-                        .frame(width: 280, height: 280)
-                    Image(systemName: "sparkles").font(.system(size: 80, weight: .light))
-                        .foregroundStyle(C.dark ? AnyShapeStyle(SwiftUI.Color.white) : AnyShapeStyle(Modern.accentGradient))
+                VStack(spacing: 22) {
+                    ZStack {
+                        Circle().fill(RadialGradient(colors: [(C.heroOn ? SwiftUI.Color.white.opacity(0.35) : Modern.gradB.opacity(Brand.vivid ? 0.5 : 0.25)), .clear],
+                                                     center: .center, startRadius: 4, endRadius: 140))
+                            .frame(width: 280, height: 280)
+                        Image(systemName: "sparkles").font(.system(size: 80, weight: .light))
+                            .foregroundStyle(C.dark ? AnyShapeStyle(SwiftUI.Color.white) : AnyShapeStyle(Modern.accentGradient))
+                    }
+                    Text("Vítej v Úklidu").font(.system(size: 30, weight: .bold)).foregroundStyle(C.heroText)
+                    Text("Najde odpad, velké soubory, zbytky aplikací a zbytečné služby při startu. Nic se nesmaže bez tvého potvrzení.")
+                        .font(.system(size: 14)).foregroundStyle(C.heroText2).multilineTextAlignment(.center).frame(maxWidth: 520)
+                    BigActionButton(title: "Prohledat", running: false) { hub.smartScan() }
                 }
-                Text("Vítej v Úklidu").font(.system(size: 30, weight: .bold)).foregroundStyle(C.text)
-                Text("Najde odpad, velké soubory, zbytky aplikací a zbytečné služby při startu. Nic se nesmaže bez tvého potvrzení.")
-                    .font(.system(size: 14)).foregroundStyle(C.text2).multilineTextAlignment(.center).frame(maxWidth: 520)
-                BigActionButton(title: "Prohledat", running: false) { hub.smartScan() }
+                .padding(.vertical, C.heroOn ? 26 : 0).padding(.horizontal, C.heroOn ? 60 : 0)
+                .frame(maxWidth: .infinity)
+                .background(HeroPanel())
                 Spacer()
             } else {
                 VStack(spacing: 10) {
