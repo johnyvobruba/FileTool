@@ -4,13 +4,14 @@ import AppKit
 // Okno Úklid (⇧⌘U) ve stylu CleanMyMac: vlevo moduly, vpravo obsah modulu.
 
 enum CleanModule: String, CaseIterable, Identifiable {
-    case smart, junk, large, uninstall, lens, dupes
+    case smart, junk, large, old, uninstall, lens, dupes
     var id: String { rawValue }
     var title: String {
         switch self {
         case .smart: return "Chytrá kontrola"
         case .junk: return "Systémový odpad"
-        case .large: return "Velké a staré soubory"
+        case .large: return "Velké soubory"
+        case .old: return "Staré soubory"
         case .uninstall: return "Odinstalace aplikací"
         case .lens: return "Mapa disku"
         case .dupes: return "Duplicity"
@@ -20,7 +21,8 @@ enum CleanModule: String, CaseIterable, Identifiable {
         switch self {
         case .smart: return "Jedno prohledání – odpad, velké soubory a zbytky aplikací"
         case .junk: return "Mezipaměti, logy, vývojářské soubory, instalátory, Koš"
-        case .large: return "Co zabírá nejvíc místa a dlouho jsi to neotevřel"
+        case .large: return "Co zabírá nejvíc místa"
+        case .old: return "Soubory, které jsi dlouho neotevřel (i menší než 100 MB)"
         case .uninstall: return "Aplikace i se všemi soubory, zbytky po smazaných aplikacích"
         case .lens: return "Kde je místo – klikni na blok a jdi hlouběji"
         case .dupes: return "Stejné soubory podle obsahu (SHA-256)"
@@ -30,7 +32,8 @@ enum CleanModule: String, CaseIterable, Identifiable {
         switch self {
         case .smart: return "sparkles"
         case .junk: return "trash.circle"
-        case .large: return "doc.badge.clock"
+        case .large: return "arrow.up.doc"
+        case .old: return "clock.arrow.circlepath"
         case .uninstall: return "xmark.app"
         case .lens: return "square.grid.3x3.square"
         case .dupes: return "doc.on.doc"
@@ -43,6 +46,7 @@ final class CleanHub: ObservableObject {
     @Published var module: CleanModule = .smart
     let junk = JunkModel()
     let large = LargeOldModel()
+    let old = LargeOldModel(oldMode: true)
     let uninstall = UninstallModel()
     let lens = SpaceLensModel()
     let dupes = DuplicatesModel()
@@ -72,7 +76,7 @@ enum CleanupWindow {
         w.contentView = NSHostingView(rootView: CleanRootView(hub: h).preferredColorScheme(FTSettings.shared.isDark ? .dark : .light))
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { _ in
             MainActor.assumeIsolated {
-                hub?.junk.stop(); hub?.large.stop(); hub?.dupes.stop()
+                hub?.junk.stop(); hub?.large.stop(); hub?.old.stop(); hub?.dupes.stop()
                 window = nil; hub = nil
             }
         }
@@ -148,6 +152,7 @@ struct CleanRootView: View {
                     case .smart: SmartScanView(hub: hub, junk: hub.junk, large: hub.large, un: hub.uninstall)
                     case .junk: JunkView(m: hub.junk)
                     case .large: LargeOldView(m: hub.large)
+                    case .old: LargeOldView(m: hub.old)
                     case .uninstall: UninstallView(m: hub.uninstall)
                     case .lens: SpaceLensView(m: hub.lens)
                     case .dupes: DuplicatesView(m: hub.dupes)
@@ -370,7 +375,9 @@ struct LargeOldView: View {
             HStack(spacing: 12) {
                 folderPicker($m.root)
                 Text("Větší než").font(SK.helpFont).foregroundStyle(UI.textSecondary)
-                SKMenuPicker(selection: $m.minSizeMB, options: [(10, "10 MB"), (50, "50 MB"), (100, "100 MB"), (500, "500 MB"), (1024, "1 GB")], width: 100)
+                SKMenuPicker(selection: $m.minSizeMB, options: m.oldMode
+                             ? [(1, "1 MB"), (10, "10 MB"), (50, "50 MB"), (100, "100 MB")]
+                             : [(10, "10 MB"), (50, "50 MB"), (100, "100 MB"), (500, "500 MB"), (1024, "1 GB")], width: 100)
                 Toggle("Včetně ~/Library", isOn: $m.includeLibrary).toggleStyle(.checkbox).fixedSize()
             }
             ScanBar(running: m.running, status: m.status, scan: { m.scan() }, stop: { m.stop() })
@@ -378,7 +385,7 @@ struct LargeOldView: View {
                 Text("Typ").font(SK.helpFont).foregroundStyle(UI.textSecondary)
                 SKMenuPicker(selection: $m.kind, options: FileKind.allCases.map { ($0, $0.title) }, width: 150)
                 Text("Stáří").font(SK.helpFont).foregroundStyle(UI.textSecondary)
-                SKMenuPicker(selection: $m.age, options: AgeFilter.allCases.map { ($0, $0.title) }, width: 210)
+                SKMenuPicker(selection: $m.age, options: AgeFilter.allCases.filter { !m.oldMode || $0 != .anyAge }.map { ($0, $0.title) }, width: 210)
                 Spacer()
                 Text("\(m.shown.count) · \(Fmt.bytes(m.shownSize))").font(SK.helpFont).foregroundStyle(UI.textSecondary)
             }
@@ -407,7 +414,7 @@ struct LargeOldView: View {
                 Spacer()
                 Button("Zobrazit v panelu") {
                     let urls = (m.selection.isEmpty ? m.shown.map(\.url) : Array(m.selection))
-                    Commander.shared.tab.showResults(urls, title: "Velké soubory")
+                    Commander.shared.tab.showResults(urls, title: m.oldMode ? "Staré soubory" : "Velké soubory")
                     NSApp.mainWindow?.makeKeyAndOrderFront(nil)
                 }
                 .buttonStyle(SKButton()).disabled(m.shown.isEmpty)

@@ -8,11 +8,17 @@ import AppKit
 @MainActor
 enum Permissions {
     /// TCC.db jde otevřít jen s Plným přístupem k disku – spolehlivý test.
+    /// Chráněná místa, která jde číst jen s Plným přístupem k disku. Stačí, aby šlo jedno z existujících.
     nonisolated static var hasFullDiskAccess: Bool {
-        let p = FileManager.default.homeDirectoryForCurrentUser.path + "/Library/Application Support/com.apple.TCC/TCC.db"
-        guard let h = FileHandle(forReadingAtPath: p) else { return false }
-        try? h.close()
-        return true
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let files = [home + "/Library/Application Support/com.apple.TCC/TCC.db", "/Library/Application Support/com.apple.TCC/TCC.db"]
+        for p in files { if let h = FileHandle(forReadingAtPath: p) { try? h.close(); return true } }
+        let dirs = ["/Library/Safari", "/Library/Mail", "/Library/Messages", "/Library/Containers/com.apple.Safari",
+                    "/Library/Cookies", "/.Trash"].map { home + $0 }
+        for d in dirs where FileManager.default.fileExists(atPath: d) {
+            if (try? FileManager.default.contentsOfDirectory(atPath: d)) != nil { return true }
+        }
+        return false
     }
 
     static func openSettings() {

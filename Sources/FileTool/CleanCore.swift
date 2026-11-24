@@ -289,6 +289,12 @@ enum AgeFilter: Int, CaseIterable, Identifiable {
 
 @MainActor
 final class LargeOldModel: ObservableObject {
+    /// Režim „Staré soubory“: menší soubory (od 1 MB), výsledky jen neotevřené déle než zvolené stáří.
+    let oldMode: Bool
+    init(oldMode: Bool = false) {
+        self.oldMode = oldMode
+        if oldMode { minSizeMB = 10; age = .y1 }
+    }
     @Published var root = FileManager.default.homeDirectoryForCurrentUser.path
     @Published var minSizeMB = 100
     @Published var includeLibrary = false
@@ -314,6 +320,8 @@ final class LargeOldModel: ObservableObject {
         files = []; selection = []; running = true; status = "Prohledávám…"
         let rootURL = URL(fileURLWithPath: (root as NSString).expandingTildeInPath, isDirectory: true)
         let minBytes = Int64(minSizeMB) * 1_048_576, lib = includeLibrary
+        // staré soubory: do seznamu jen to, co je starší než zvolené stáří (jinak by šlo o desetitisíce položek)
+        let cutoff: Date? = oldMode && age != .anyAge ? Calendar.current.date(byAdding: .month, value: -age.rawValue, to: Date()) : nil
         Task.detached(priority: .userInitiated) {
             let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey, .totalFileAllocatedSizeKey, .contentModificationDateKey, .ubiquitousItemDownloadingStatusKey]
             let libPath = CleanFS.home + "/Library"
@@ -331,7 +339,10 @@ final class LargeOldModel: ObservableObject {
                 if let st = v.ubiquitousItemDownloadingStatus, st != .current { continue }
                 let s = Int64(v.totalFileAllocatedSize ?? 0)
                 guard s >= minBytes else { continue }
-                batch.append(BigFile(url: u, size: s, lastUsed: CleanFS.lastUsed(u), modified: v.contentModificationDate))
+                if let cutoff, (v.contentModificationDate ?? .distantPast) >= cutoff { continue }     // rychlé vyřazení bez Spotlightu
+                let f = BigFile(url: u, size: s, lastUsed: CleanFS.lastUsed(u), modified: v.contentModificationDate)
+                if let cutoff, f.reference >= cutoff { continue }
+                batch.append(f)
                 if Date().timeIntervalSince(last) > 0.3 {
                     last = Date()
                     let b = batch, count = n; batch = []
