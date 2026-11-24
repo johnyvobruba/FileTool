@@ -143,6 +143,16 @@ final class PanelTab: ObservableObject, Identifiable {
     func goBack() { guard let u = back.popLast() else { return }; forward.append(dir); go(u, record: false) }
     func goForward() { guard let u = forward.popLast() else { return }; back.append(dir); go(u, record: false) }
 
+    /// Přejít na vnitřní složku otevřeného archivu („“ = kořen archivu).
+    func goArchive(_ inner: String) {
+        guard var a = archive else { return }
+        a.inner = inner
+        archive = a
+        pathField = displayPath
+        marked = []
+        load(resetCursor: true)
+    }
+
     func open(_ item: FileItem) {
         if item.isParent { up(); return }
         if let r = remote, let p = item.remotePath {

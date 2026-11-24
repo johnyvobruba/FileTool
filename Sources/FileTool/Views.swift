@@ -8,6 +8,8 @@ struct MainView: View {
     @ObservedObject var settings: FTSettings
     /// Podíl levého panelu (0,5 = půl na půl); táhnutím za dělicí čáru, dvojklik vrátí na polovinu.
     @AppStorage("panelSplit") private var split: Double = 0.5
+    /// Šířka bočního panelu (táhnutím za jeho pravý okraj, dvojklik = výchozí 210).
+    @AppStorage("sidebarWidth") private var sidebarWidth: Double = 210
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,8 +18,8 @@ struct MainView: View {
             HStack(spacing: 0) {
             if settings.showSidebar {
                 SidebarView(commander: commander, tab: commander.tab)
-                    .frame(width: 210)
-                Rectangle().fill(UI.border).frame(width: 1)
+                    .frame(width: CGFloat(sidebarWidth))
+                SidebarHandle(width: $sidebarWidth)
             }
             GeometryReader { g in
                 let w = g.size.width
@@ -32,6 +34,7 @@ struct MainView: View {
                 .coordinateSpace(name: "panels")
             }
             }
+            .coordinateSpace(name: "main")
             if !commander.ops.isEmpty {
                 Rectangle().fill(UI.border).frame(height: 1)
                 OpsBar(commander: commander)
@@ -43,6 +46,26 @@ struct MainView: View {
         .background(UI.app)
         .sheet(item: $commander.output) { out in OutputSheet(out: out) { commander.output = nil } }
         .onAppear { DispatchQueue.main.async { commander.focus(commander.activeSide) } }
+    }
+}
+
+/// Pravý okraj bočního panelu: táhnutím šířka 150–420 bodů, dvojklik vrátí 210.
+struct SidebarHandle: View {
+    @Binding var width: Double
+
+    var body: some View {
+        Rectangle().fill(UI.border).frame(width: 1)
+            .overlay(
+                Rectangle().fill(SwiftUI.Color.white.opacity(0.001)).frame(width: 9)
+                    .onHover { inside in
+                        MainActor.assumeIsolated { if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
+                    }
+                    .gesture(DragGesture(minimumDistance: 1, coordinateSpace: .named("main"))
+                        .onChanged { v in width = min(max(Double(v.location.x), 150), 420) })
+                    .onTapGesture(count: 2) { width = 210 }
+                    .tip("Táhnutím změníš šířku bočního panelu, dvojklik = výchozí šířka")
+            )
+            .zIndex(1)
     }
 }
 
@@ -223,13 +246,7 @@ struct PanelContent: View {
             DriveBar(tab: tab, side: side, commander: commander)
             // cesta – aktivní panel zvýrazněný barvou profilu (jako modrý pruh v TC)
             HStack(spacing: 6) {
-                TextField("", text: $tab.pathField, onCommit: {
-                    tab.submitPath()
-                    commander.focus(side)
-                })
-                .textFieldStyle(.plain)
-                .font(.system(size: 11.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(isActive ? SwiftUI.Color.white : UI.textSecondary)
+                PathBar(tab: tab, side: side, commander: commander, active: isActive)
                 if tab.opening { ProgressView().controlSize(.small) }
                 if let a = tab.archive {
                     Text(a.index.format + (a.index.encrypted ? " · 🔒 šifrovaný" : "") + (ArchiveIO.isZip(a.file) ? "" : " · jen pro čtení"))
@@ -240,7 +257,7 @@ struct PanelContent: View {
                         .foregroundStyle(isActive ? SwiftUI.Color.white : UI.accent)
                 }
             }
-            .padding(.horizontal, 8).frame(height: 22)
+            .padding(.horizontal, 8).frame(height: 26)
             .background(isActive ? UI.accent : UI.card)
             if let e = tab.error {
                 Text(e).font(.system(size: 11)).foregroundStyle(UI.error)

@@ -3,6 +3,11 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.9.2
+
+- **Klikací cesta** nad panelem (jako ve Finderu): klik na libovolnou část cesty = přejít do ní, **dvojklik = zkopírovat celou cestu** (potvrdí „Zkopírováno“), tlačítka ↑ (nadřazená), ✎ ruční úprava cesty (⌘L, Esc zruší) a kopírování. Funguje i v archivu (včetně vnitřních složek), na serveru a ve výsledcích hledání.
+- **Šířka bočního panelu** jde měnit táhnutím za jeho pravý okraj (150–420 bodů, pamatuje se), dvojklik vrátí výchozí šířku.
+
 ## 0.9.1
 
 - **Oprava SMB s cestou ke složce** (např. `smb://bont1/Users/jvobruba`): připojí se stejně jako ve Finderu (⌘K) – i přímo podsložka sdílení – a panel otevře správnou složku (dřív hledal neexistující `/Volumes/jvobruba/jvobruba`). Už připojené sdílení se pozná i tehdy, když je připojený celý share a ty chceš jeho podsložku.
