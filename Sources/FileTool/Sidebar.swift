@@ -193,7 +193,7 @@ struct SidebarView: View {
             .padding(.horizontal, 8).padding(.bottom, 12)
         }
         .frame(maxHeight: .infinity)
-        .background(Modern.glass)
+        .background(Modern.nav)
         .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
             for p in providers {
                 _ = p.loadObject(ofClass: URL.self) { url, _ in

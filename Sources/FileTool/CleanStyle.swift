@@ -1,47 +1,61 @@
 import SwiftUI
 import AppKit
 
-// Vzhled okna Úklid ve stylu CleanMyMac: každý modul má vlastní barevný přechod,
-// obsah je na „skleněných“ kartách, text světlý (okno je vždy v tmavém režimu).
+// Vzhled okna Úklid: barvy podle zvoleného barevného profilu (stejně jako hlavní okno).
+// Tmavé profily = tmavá navigace a světlý text, světlé profily (Arctic Light, Sandstone) = světlá plocha
+// a tmavý text. Úvodní panel a hlavní tlačítka používají přechod profilu, moduly mají plastické dlaždice
+// s vlastním odstínem sladěným s profilem. Síla efektů podle stylu rozhraní (Výrazný / Jemný).
 
 enum C {
     nonisolated(unsafe) static var module: CleanModule = .smart
+    private static var t: Theme { ThemeStore.ui }
+    static var dark: Bool { t.isDark }
 
-    static var text: SwiftUI.Color { .white }
-    static var text2: SwiftUI.Color { .white.opacity(0.74) }
-    static var text3: SwiftUI.Color { .white.opacity(0.5) }
-    static var card: SwiftUI.Color { .white.opacity(0.08) }
-    static var cardStrong: SwiftUI.Color { .white.opacity(0.14) }
-    static var border: SwiftUI.Color { .white.opacity(0.14) }
-    static var hover: SwiftUI.Color { .white.opacity(0.12) }
-    static var selected: SwiftUI.Color { .white.opacity(0.18) }
-    static var rail: SwiftUI.Color { .black.opacity(0.22) }
+    static var text: SwiftUI.Color { UI.text }
+    static var text2: SwiftUI.Color { UI.textSecondary }
+    static var text3: SwiftUI.Color { UI.textTertiary }
+    static var card: SwiftUI.Color { dark ? .white.opacity(0.07) : .white.opacity(0.62) }
+    static var cardStrong: SwiftUI.Color { dark ? .white.opacity(0.13) : .white.opacity(0.88) }
+    static var border: SwiftUI.Color { dark ? .white.opacity(0.13) : .black.opacity(0.09) }
+    static var hover: SwiftUI.Color { dark ? .white.opacity(0.10) : Modern.gradA.opacity(0.10) }
+    static var selected: SwiftUI.Color { dark ? .white.opacity(0.15) : Modern.gradA.opacity(0.16) }
+    static var rail: SwiftUI.Color {
+        Modern.blend(t.sidebarBackground, Modern.brand.nav, Brand.vivid ? 0.85 : 0.4).opacity(dark ? 0.92 : 0.8)
+    }
     static var clear: SwiftUI.Color { .clear }
-    static var accent: SwiftUI.Color { module.palette.accent }
+    static var accent: SwiftUI.Color { UI.accent }
 
     static func hex(_ h: String) -> SwiftUI.Color { SwiftUI.Color(hex: h) ?? .gray }
 }
 
 extension CleanModule {
-    /// (horní, dolní barva přechodu, zvýraznění)
-    var palette: (top: SwiftUI.Color, bottom: SwiftUI.Color, accent: SwiftUI.Color) {
+    /// Odstín dlaždice modulu (sladí se s profilem v TileIcon).
+    var hue: String {
         switch self {
-        case .smart:       return (C.hex("#4A2675"), C.hex("#8E2F6C"), C.hex("#F06BC0"))
-        case .junk:        return (C.hex("#173F27"), C.hex("#3C6B26"), C.hex("#9BE27A"))
-        case .large:       return (C.hex("#143E4A"), C.hex("#246A6B"), C.hex("#6FE3D6"))
-        case .old:         return (C.hex("#1E3550"), C.hex("#2E6178"), C.hex("#7CC8F2"))
-        case .uninstall:   return (C.hex("#1B2E5E"), C.hex("#2F539A"), C.hex("#7FA7FF"))
-        case .performance: return (C.hex("#5A220E"), C.hex("#A84A18"), C.hex("#FFB066"))
-        case .lens:        return (C.hex("#2C1760"), C.hex("#6A2A86"), C.hex("#E07BFF"))
-        case .dupes:       return (C.hex("#173B4D"), C.hex("#2C6E80"), C.hex("#74D8F0"))
+        case .smart:       return "#C34FD0"
+        case .junk:        return "#2F9BEA"
+        case .large:       return "#F08A2C"
+        case .old:         return "#3AA6C9"
+        case .uninstall:   return "#3E7CF2"
+        case .performance: return "#EE6236"
+        case .lens:        return "#2FB98A"
+        case .dupes:       return "#8A5CF0"
         }
+    }
+    /// (horní, dolní barva pozadí okna, odstín modulu) – pozadí je stejné pro všechny moduly, podle profilu.
+    var palette: (top: SwiftUI.Color, bottom: SwiftUI.Color, accent: SwiftUI.Color) {
+        let t = ThemeStore.ui, b = Modern.brand, v = Brand.vivid
+        if t.isDark {
+            return (Modern.blend(b.nav, b.a, v ? 0.34 : 0.14), Modern.blend(t.appBackground, b.b, v ? 0.26 : 0.10), C.hex(hue))
+        }
+        return (Modern.blend(t.appBackground, b.a, v ? 0.14 : 0.06), Modern.blend(t.appBackground, b.b, v ? 0.20 : 0.08), C.hex(hue))
     }
     var gradient: LinearGradient {
         LinearGradient(colors: [palette.top, palette.bottom], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 }
 
-/// Tlačítko na barevném pozadí: průhledné (sklo), výrazné (bílé) nebo pro mazání.
+/// Tlačítko Úklidu: výrazné (přechod profilu), běžné (sklo) nebo pro mazání. Velikost beze změny.
 struct GlassButton: ButtonStyle {
     var prominent = false
     var danger = false
@@ -53,9 +67,16 @@ struct GlassButton: ButtonStyle {
             .lineLimit(1)
             .padding(.horizontal, 14)
             .frame(height: 32)
-            .background(Capsule().fill(prominent ? SwiftUI.Color.white : danger ? SwiftUI.Color.red.opacity(0.55) : C.cardStrong))
-            .overlay(Capsule().stroke(prominent ? SwiftUI.Color.clear : C.border, lineWidth: 1))
-            .foregroundStyle(prominent ? C.module.palette.top : SwiftUI.Color.white)
+            .background {
+                if prominent {
+                    Capsule().fill(Modern.accentGradient)
+                        .shadow(color: Modern.gradB.opacity(Brand.vivid ? 0.45 : 0), radius: 6, y: 2)
+                } else {
+                    Capsule().fill(danger ? SwiftUI.Color.red.opacity(0.6) : C.cardStrong)
+                }
+            }
+            .overlay(Capsule().stroke(prominent ? SwiftUI.Color.white.opacity(Brand.vivid ? 0.22 : 0) : C.border, lineWidth: 1))
+            .foregroundStyle(prominent ? Modern.onGrad : danger ? SwiftUI.Color.white : C.text)
             .opacity(!isEnabled ? 0.45 : configuration.isPressed ? 0.75 : 1)
             .contentShape(Capsule())
     }

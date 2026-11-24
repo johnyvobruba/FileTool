@@ -382,6 +382,15 @@ struct SettingsAppearancePane: View {
                 }
             }
         }
+        SKSection("Styl rozhraní") {
+            SKRow("Styl", help: "Výrazný: sytější přechody, stíny a barevné ikony. Jemný: klidnější varianta stejného profilu. Velikosti tlačítek se nemění.", first: true) {
+                Picker("", selection: $settings.uiStyle) {
+                    Text("Výrazný").tag("vivid")
+                    Text("Jemný").tag("subtle")
+                }
+                .pickerStyle(.segmented).labelsHidden().frame(width: 280)
+            }
+        }
         SKSection("Ikona aplikace") {
             SKRow("Ikona v Docku podle profilu",
                   help: "Barvy ikony v Docku a v přepínači ⌘Tab odpovídají vybranému profilu. Finder a Launchpad ukazují původní ikonu.",

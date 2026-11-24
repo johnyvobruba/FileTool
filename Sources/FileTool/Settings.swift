@@ -9,6 +9,8 @@ final class FTSettings: ObservableObject {
 
     @Published var themeID: String        { didSet { d.set(themeID, forKey: "themeID"); applyTheme() } }
     @Published var appearance: String     { didSet { d.set(appearance, forKey: "appearance"); applyTheme() } }
+    /// Styl rozhraní: "vivid" (Výrazný) | "subtle" (Jemný) – síla přechodů, stínů a barevných ikon.
+    @Published var uiStyle: String        { didSet { d.set(uiStyle, forKey: "uiStyle"); applyTheme() } }
     @Published var showHidden: Bool       { didSet { d.set(showHidden, forKey: "showHidden") } }
     @Published var foldersFirst: Bool     { didSet { d.set(foldersFirst, forKey: "foldersFirst") } }
     @Published var useTrash: Bool         { didSet { d.set(useTrash, forKey: "useTrash") } }
@@ -30,6 +32,7 @@ final class FTSettings: ObservableObject {
         func b(_ k: String, _ def: Bool) -> Bool { ud.object(forKey: k) as? Bool ?? def }
         themeID = ud.string(forKey: "themeID") ?? Theme.midnight.id
         appearance = ud.string(forKey: "appearance") ?? "dark"
+        uiStyle = ud.string(forKey: "uiStyle") ?? "vivid"
         showHidden = b("showHidden", false)
         foldersFirst = b("foldersFirst", true)
         useTrash = b("useTrash", true)
@@ -54,9 +57,10 @@ final class FTSettings: ObservableObject {
 
     func applyTheme() {
         let t = ThemeStore.resolve(themeID: themeID, appearance: appearance)
-        guard t.id != themeKey else { return }
+        let key = t.id + "/" + Brand.styleKey
+        guard key != themeKey else { return }
         ThemeStore.ui = t
-        themeKey = t.id
+        themeKey = key
         NotificationCenter.default.post(name: ThemeStore.changed, object: nil)
         DispatchQueue.main.async { AppIcon.apply() }
     }

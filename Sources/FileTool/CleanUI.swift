@@ -73,6 +73,14 @@ enum CleanupWindow {
     private static var window: NSWindow?
     private static var hub: CleanHub?
 
+    nonisolated(unsafe) private static var themeObserver: NSObjectProtocol?
+
+    private static func build(_ w: NSWindow, _ h: CleanHub) {
+        let dark = ThemeStore.ui.isDark
+        w.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        w.contentView = NSHostingView(rootView: CleanRootView(hub: h).preferredColorScheme(dark ? .dark : .light))
+    }
+
     static func show() {
         if let w = window { w.makeKeyAndOrderFront(nil); return }
         let h = CleanHub()
@@ -83,12 +91,16 @@ enum CleanupWindow {
         w.titleVisibility = .hidden
         w.isMovableByWindowBackground = true
         w.isReleasedWhenClosed = false
-        w.appearance = NSAppearance(named: .darkAqua)
-        w.contentView = NSHostingView(rootView: CleanRootView(hub: h).preferredColorScheme(.dark))
+        build(w, h)
+        // změna profilu nebo stylu rozhraní: okno se přebarví (rozpracované hledání zůstává v hubu)
+        themeObserver = NotificationCenter.default.addObserver(forName: ThemeStore.changed, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { if let w = window, let h = hub { build(w, h) } }
+        }
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { _ in
             MainActor.assumeIsolated {
                 hub?.junk.stop(); hub?.large.stop(); hub?.old.stop(); hub?.dupes.stop()
                 window = nil; hub = nil
+                if let o = themeObserver { NotificationCenter.default.removeObserver(o); themeObserver = nil }
             }
         }
         window = w; hub = h
@@ -108,7 +120,7 @@ struct CleanRootView: View {
             hub.module.gradient.ignoresSafeArea()
                 .animation(.easeInOut(duration: 0.35), value: hub.module)
             // jemná záře v rohu jako v CMM
-            RadialGradient(colors: [hub.module.palette.accent.opacity(0.28), .clear], center: .topTrailing, startRadius: 10, endRadius: 520)
+            RadialGradient(colors: [Modern.glow, .clear], center: .topTrailing, startRadius: 10, endRadius: 520)
                 .ignoresSafeArea()
             HStack(spacing: 0) {
                 rail
@@ -153,13 +165,7 @@ struct CleanRootView: View {
                 let on = hub.module == m
                 Button { withAnimation(.easeInOut(duration: 0.25)) { hub.module = m } } label: {
                     HStack(spacing: 10) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(LinearGradient(colors: [m.palette.accent, m.palette.bottom], startPoint: .top, endPoint: .bottom))
-                            Image(systemName: m.icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                        }
-                        .frame(width: 28, height: 28)
-                        .shadow(color: on ? m.palette.accent.opacity(0.6) : .clear, radius: 6)
+                        TileIcon(symbol: m.icon, hue: m.hue, size: 28, glow: on)
                         Text(m.title).font(.system(size: 12.5, weight: on ? .semibold : .regular))
                             .foregroundStyle(on ? C.text : C.text2)
                         Spacer()
@@ -205,10 +211,12 @@ struct BigActionButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().fill(LinearGradient(colors: [C.accent, C.accent.opacity(0.65)], startPoint: .top, endPoint: .bottom))
-                    .shadow(color: C.accent.opacity(0.45), radius: 14)
-                if running { ProgressView().controlSize(.large).tint(.white) }
-                else { Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(.white) }
+                Circle().fill(LinearGradient(colors: [Modern.gradA, Modern.gradB], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .shadow(color: Modern.gradB.opacity(Brand.vivid ? 0.5 : 0.2), radius: Brand.vivid ? 16 : 8)
+                Circle().fill(LinearGradient(colors: [.white.opacity(Brand.vivid ? 0.28 : 0.08), .clear], startPoint: .top, endPoint: .center))
+                    .padding(3)
+                if running { ProgressView().controlSize(.large).tint(Modern.onGrad) }
+                else { Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(Modern.onGrad) }
             }
             .frame(width: 120, height: 120)
         }
@@ -280,9 +288,10 @@ struct SmartScanView: View {
             if !scanned && !running {
                 Spacer()
                 ZStack {
-                    Circle().fill(RadialGradient(colors: [C.accent.opacity(0.55), .clear], center: .center, startRadius: 4, endRadius: 140))
+                    Circle().fill(RadialGradient(colors: [Modern.gradB.opacity(Brand.vivid ? 0.5 : 0.25), .clear], center: .center, startRadius: 4, endRadius: 140))
                         .frame(width: 280, height: 280)
-                    Image(systemName: "sparkles").font(.system(size: 80, weight: .light)).foregroundStyle(.white)
+                    Image(systemName: "sparkles").font(.system(size: 80, weight: .light))
+                        .foregroundStyle(C.dark ? AnyShapeStyle(SwiftUI.Color.white) : AnyShapeStyle(Modern.accentGradient))
                 }
                 Text("Vítej v Úklidu").font(.system(size: 30, weight: .bold)).foregroundStyle(C.text)
                 Text("Najde odpad, velké soubory, zbytky aplikací a zbytečné služby při startu. Nic se nesmaže bez tvého potvrzení.")

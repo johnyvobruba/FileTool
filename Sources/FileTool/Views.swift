@@ -50,7 +50,7 @@ struct MainView: View {
             FunctionKeyBar(commander: commander)
                 .padding(.horizontal, 6).padding(.vertical, 5)
         }
-        .background(ModernBackground())
+        .background(ModernBackground(header: 62))          // titulek 28 + nástroje 34
         .background(TransparentTitlebar())
         .sheet(item: $commander.output) { out in OutputSheet(out: out) { commander.output = nil } }
         .onAppear { DispatchQueue.main.async { commander.focus(commander.activeSide) } }

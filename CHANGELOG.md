@@ -3,6 +3,13 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.12.0
+
+- **Barevný profil přebarví celé rozhraní** – každý z 8 profilů má vlastní navigaci, horní lištu a dvoubarevný přechod pro aktivní prvky (Midnight Graphite: ocelově modrá → modrá, Tokyo Night: modrá → fialová, Nord Frost: petrolejová → ledově modrá, Catppuccin Mocha: levandulová → pastelově růžová, Emerald Terminal: smaragdová → tyrkysová, Walnut: měděná → jantarová, Sandstone: bronzová → medová, Arctic Light: královská → azurová). Aktivní záložka/panel s rámečkem v přechodu profilu, navigace v barvě profilu.
+- **Nové nastavení Styl rozhraní: Výrazný / Jemný** (Nastavení → Vzhled) – síla přechodů, stínů a zvýraznění. Barevný profil a styl jsou dvě samostatné volby (např. Walnut + Výrazný).
+- Velikosti tlačítek, lišt a rozložení se nemění. Významové barvy zůstávají: zelená připojeno, oranžová upozornění, červená chyba.
+- **Úklid podle profilu** – už není vždy tmavě fialový: tmavé profily mají tmavou navigaci a světlý text, Arctic Light a Sandstone světlou plochu a tmavý text; tlačítko Prohledat a hlavní akce v přechodu profilu, moduly s plastickými barevnými dlaždicemi sladěnými s profilem. Změna profilu se projeví i v otevřeném okně Úklidu.
+
 ## 0.11.0
 
 - **Úklid v novém vzhledu** (inspirace CleanMyMac): každý modul má vlastní barevný přechod, lišta modulů s barevnými ikonami, skleněné karty s doporučeními a tlačítky Zkontrolovat / Vyčistit, průhledné seznamy. Chytrá kontrola jako přehled („Na tvém Macu je X GB odpadu“ + karty odpad, velké soubory, zbytky aplikací, služby, Koš).

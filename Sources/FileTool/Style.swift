@@ -53,7 +53,7 @@ enum UI {
     static var sidebar: SwiftUI.Color       { hex(t.sidebarBackground) }
     static var chrome: SwiftUI.Color        { hex(t.toolbarBackground) }
     static var card: SwiftUI.Color          { hex(t.tabInactiveBackground) }
-    static var cardSelected: SwiftUI.Color  { hex(t.tabActiveBackground) }
+    static var cardSelected: SwiftUI.Color  { Modern.selectedFill }
     static var hover: SwiftUI.Color         { hex(t.itemHoverBackground) }
     static var rowSelected: SwiftUI.Color   { hex(t.itemSelectedBackground) }
     static var border: SwiftUI.Color        { hex(t.borderColor) }
