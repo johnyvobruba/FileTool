@@ -226,6 +226,16 @@ struct FileTable: NSViewRepresentable {
         func key(_ e: NSEvent) -> Bool {
             let mods = e.modifierFlags.intersection([.command, .option, .control, .shift])
             let code = e.keyCode
+            if tab.showThumbs, mods.isEmpty {                                                    // mřížka náhledů
+                let cols = max(1, tab.gridColumns)
+                switch code {
+                case 123: move(-1); return true                                                  // ←
+                case 124: move(1); return true                                                   // →
+                case 125: move(cols); return true                                                // ↓
+                case 126: move(-cols); return true                                               // ↑
+                default: break
+                }
+            }
             switch (code, mods) {
             case (48, []): commander.switchPanel(); return true                                  // Tab
             case (36, []), (76, []), (125, [.command]):                                          // Enter, ⌘↓

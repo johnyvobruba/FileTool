@@ -3,6 +3,12 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.9.0
+
+- **Náhledy (velké ikony):** panel umí místo seznamu zobrazit mřížku náhledů obrázků (Quick Look – i HEIC, RAW, PDF, videa). Složka **jen s obrázky** se tak zobrazí automaticky (vypnutelné v Nastavení → Obecné). Přepnutí ⌥⌘T nebo ikonou v liště, velikost náhledů posuvníkem nad mřížkou (64–320 bodů).
+  - ovládání jako v seznamu: šipky po mřížce, mezerník / ⌘-klik označí, Enter / dvojklik otevře, F3 Quick Look, F5–F8 a další operace beze změny, přetahování myší;
+  - v archivu a na serveru ikony podle typu souboru.
+
 ## 0.8.5
 
 - **Úklid – řazení výsledků:** u Velkých a Starých souborů jde řadit klikem na hlavičku sloupce (název, umístění, velikost, naposledy otevřeno, změněno) a přes předvolbu „Řadit“ – včetně **„Velké a zároveň staré“** (velikost × doba bez otevření), které je výchozí u Starých souborů.

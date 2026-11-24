@@ -64,6 +64,8 @@ struct FileToolApp: App {
             CommandGroup(after: .sidebar) {
                 Button(settings.showSidebar ? "Skrýt boční panel" : "Zobrazit boční panel") { settings.showSidebar.toggle() }
                     .keyboardShortcut("s", modifiers: [.command, .control])
+                Button("Seznam / náhledy") { let t = commander.tab; t.thumbOverride = !t.showThumbs; commander.focus(commander.activeSide) }
+                    .keyboardShortcut("t", modifiers: [.command, .option])
                 Button("Skryté soubory") { settings.showHidden.toggle(); commander.refreshAll() }
                     .keyboardShortcut(".", modifiers: [.command, .shift])
                 Button("Obnovit") { commander.refreshAll() }.keyboardShortcut("r", modifiers: [.command, .shift])

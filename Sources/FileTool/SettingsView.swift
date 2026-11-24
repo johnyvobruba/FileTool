@@ -329,6 +329,12 @@ struct SettingsGeneralPane: View {
             SKRow("Složky vždy nahoře", help: "Při jakémkoliv řazení jsou složky před soubory (jako v Total Commanderu).") {
                 SKToggle(isOn: $settings.foldersFirst)
             }
+            SKRow("Náhledy ve složkách s obrázky", help: "Složka jen s obrázky se automaticky zobrazí jako mřížka náhledů. Ručně přepneš ⌥⌘T nebo ikonou v liště.") {
+                SKToggle(isOn: $settings.autoThumbs)
+            }
+            SKRow("Velikost náhledů", help: "Také posuvníkem nad mřížkou.") {
+                Slider(value: $settings.thumbSize, in: 64...320).frame(width: 180)
+            }
             SKRow("Velikost písma seznamu", help: "Také ⌘+ / ⌘−.") {
                 HStack(spacing: 8) {
                     Text(String(format: "%.1f pt", settings.fontSize)).font(SK.monoFont).foregroundStyle(UI.textSecondary)

@@ -44,6 +44,12 @@ final class PanelTab: ObservableObject, Identifiable {
     @Published private(set) var remote: RemoteLocation?
     /// Panel ukazuje výsledky hledání (⌘F → Zobrazit v aktivním panelu).
     @Published private(set) var results: SearchResults?
+    /// Náhledy: nil = automaticky (složka jen s obrázky), true/false = ručně pro tuto složku.
+    @Published var thumbOverride: Bool?
+    @Published private(set) var autoThumbs = false
+    var showThumbs: Bool { thumbOverride ?? autoThumbs }
+    /// Počet sloupců mřížky náhledů (pro šipky nahoru/dolů).
+    var gridColumns = 1
 
     private var back: [URL] = []
     private var forward: [URL] = []
@@ -93,6 +99,7 @@ final class PanelTab: ObservableObject, Identifiable {
         disconnectRemote()
         archive = nil
         results = nil
+        thumbOverride = nil
         dir = target
         pathField = target.path
         marked = []
@@ -310,6 +317,7 @@ final class PanelTab: ObservableObject, Identifiable {
                 if !hidden { list = list.filter { !$0.isHidden } }
                 let all = [parentItem] + LocalFS.sort(list, by: key, ascending: asc, foldersFirst: ff)
                 self.items = all
+                self.autoThumbs = false
                 self.error = nil
                 self.marked = self.marked.intersection(Set(all.map(\.url)))
                 if !resetCursor, let n = keepName, let i = all.firstIndex(where: { $0.name == n }) { self.cursor = i }
@@ -350,6 +358,7 @@ final class PanelTab: ObservableObject, Identifiable {
                 let shown = hidden ? list : list.filter { !$0.isHidden }
                 let all = [FileItem.parent(of: d.appendingPathComponent("_"))] + LocalFS.sort(shown, by: key, ascending: asc, foldersFirst: ff)
                 self.items = all
+                self.autoThumbs = FTSettings.shared.autoThumbs && ThumbSupport.onlyImages(all)
                 self.error = nil
                 self.pathField = self.displayPath
                 self.marked = self.marked.intersection(Set(all.map(\.url)))
@@ -379,6 +388,7 @@ final class PanelTab: ObservableObject, Identifiable {
                     var all = LocalFS.sort(list, by: key, ascending: asc, foldersFirst: ff)
                     if d.path != "/" { all.insert(FileItem.parent(of: d), at: 0) }
                     self.items = all
+                    self.autoThumbs = FTSettings.shared.autoThumbs && ThumbSupport.onlyImages(all)
                     self.error = nil
                     let existing = Set(all.map(\.url))
                     self.marked = self.marked.intersection(existing)
@@ -406,6 +416,7 @@ final class PanelTab: ObservableObject, Identifiable {
         var all = LocalFS.sort(list, by: sortKey, ascending: ascending, foldersFirst: FTSettings.shared.foldersFirst)
         all.insert(FileItem.parent(of: URL(fileURLWithPath: a.file.path + "/" + a.inner)), at: 0)
         items = all
+        autoThumbs = FTSettings.shared.autoThumbs && ThumbSupport.onlyImages(all)
         error = nil
         marked = marked.intersection(Set(all.map(\.url)))
         if !resetCursor, let n = keepName, let i = all.firstIndex(where: { $0.name == n }) { cursor = i }

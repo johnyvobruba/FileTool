@@ -18,6 +18,8 @@ final class FTSettings: ObservableObject {
     @Published var themedIcon: Bool       { didSet { d.set(themedIcon, forKey: "themedIcon"); AppIcon.apply() } }
     @Published var autoUpdateCheck: Bool  { didSet { d.set(autoUpdateCheck, forKey: "autoUpdateCheck") } }
     @Published var showSidebar: Bool      { didSet { d.set(showSidebar, forKey: "showSidebar") } }
+    @Published var autoThumbs: Bool       { didSet { d.set(autoThumbs, forKey: "autoThumbs") } }
+    @Published var thumbSize: Double      { didSet { d.set(thumbSize, forKey: "thumbSize") } }
 
     /// Klíč aktuálního motivu – při změně se okno přebuduje.
     @Published private(set) var themeKey = ""
@@ -37,6 +39,8 @@ final class FTSettings: ObservableObject {
         themedIcon = b("themedIcon", true)
         autoUpdateCheck = b("autoUpdateCheck", true)
         showSidebar = b("showSidebar", true)
+        autoThumbs = b("autoThumbs", true)
+        thumbSize = ud.object(forKey: "thumbSize") as? Double ?? 128
         applyTheme()
         // „Podle macOS“: reagovat na přepnutí světlý/tmavý režim
         DistributedNotificationCenter.default().addObserver(forName: Notification.Name("AppleInterfaceThemeChangedNotification"),

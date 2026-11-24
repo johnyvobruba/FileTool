@@ -90,6 +90,10 @@ struct Toolbar: View {
             button("eye.slash", "Skryté soubory (⇧⌘.)", active: settings.showHidden) {
                 settings.showHidden.toggle(); commander.refreshAll()
             }
+            button(commander.tab.showThumbs ? "list.bullet" : "square.grid.2x2",
+                   commander.tab.showThumbs ? "Zobrazit jako seznam (⌥⌘T)" : "Zobrazit náhledy – velké ikony (⌥⌘T)", active: commander.tab.showThumbs) {
+                let t = commander.tab; t.thumbOverride = !t.showThumbs; commander.focus(commander.activeSide)
+            }
             Rectangle().fill(UI.border).frame(width: 1, height: 16).padding(.horizontal, 4)
             button("chevron.left", "Zpět (⌘[)") { commander.tab.goBack() }
             button("chevron.right", "Vpřed (⌘])") { commander.tab.goForward() }
@@ -243,7 +247,14 @@ struct PanelContent: View {
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.vertical, 4)
                     .background(UI.list)
             }
-            FileTable(tab: tab, side: side, commander: commander, fontSize: settings.fontSize)
+            ZStack {
+                // tabulka zůstává (i pod náhledy) – drží fokus a obsluhuje klávesy TC
+                FileTable(tab: tab, side: side, commander: commander, fontSize: settings.fontSize)
+                    .opacity(tab.showThumbs ? 0 : 1)
+                if tab.showThumbs {
+                    ThumbGrid(tab: tab, side: side, commander: commander, settings: settings)
+                }
+            }
             Rectangle().fill(UI.border).frame(height: 1)
             Text(tab.summary)
                 .font(.system(size: 10.5).monospacedDigit()).foregroundStyle(UI.textSecondary)
