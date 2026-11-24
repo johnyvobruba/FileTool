@@ -219,6 +219,27 @@ final class SpaceLensModel: ObservableObject {
     @Published var running = false
     @Published var hover: URL?
     @Published var selection: URL?
+    @Published var checked = Set<URL>()
+
+    func toggle(_ u: URL) { if checked.contains(u) { checked.remove(u) } else { checked.insert(u) } }
+
+    /// Zaškrtnuté položky do Koše (po potvrzení).
+    func trashChecked() {
+        let list = nodes.filter { checked.contains($0.url) && !CleanFS.isProtected($0.url.path) }
+        guard !list.isEmpty else { return }
+        let a = NSAlert()
+        a.messageText = "Přesunout do Koše \(list.count) položek (\(Fmt.bytes(list.reduce(0) { $0 + $1.size })))?"
+        a.informativeText = list.prefix(10).map { "• " + $0.name }.joined(separator: "\n") + (list.count > 10 ? "\n…" : "") + "\n\nLze vrátit z Koše."
+        a.addButton(withTitle: "Do Koše"); a.addButton(withTitle: "Zrušit")
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        let r = CleanFS.remove(list.map { ($0.url, $0.size) })
+        nodes.removeAll { r.done.contains($0.url) }
+        checked.subtract(r.done)
+        for u in path { cache[u] = nil }
+        cache[current] = nodes
+        SidebarModel.shared.reloadVolumes()
+        if !r.errors.isEmpty { CleanFS.report("Některé položky nešly odebrat", freed: r.freed, errors: r.errors) }
+    }
     private var cache: [URL: [LensNode]] = [:]
     private var cancel = Box(false)
 
@@ -237,6 +258,7 @@ final class SpaceLensModel: ObservableObject {
         let c = Box(false); cancel = c
         let dir = current
         selection = nil
+        checked = []
         if !force, let cached = cache[dir] { nodes = cached; running = false; return }
         nodes = []; running = true
         Task.detached(priority: .userInitiated) {

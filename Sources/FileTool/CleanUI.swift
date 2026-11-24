@@ -1,10 +1,10 @@
 import SwiftUI
 import AppKit
 
-// Okno Úklid (⇧⌘U) ve stylu CleanMyMac: vlevo moduly, vpravo obsah modulu.
+// Okno Úklid (⇧⌘U) ve stylu CleanMyMac: vlevo lišta modulů, vpravo modul na vlastním barevném přechodu.
 
 enum CleanModule: String, CaseIterable, Identifiable {
-    case smart, junk, large, old, uninstall, lens, dupes
+    case smart, junk, large, old, uninstall, performance, lens, dupes
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -13,6 +13,7 @@ enum CleanModule: String, CaseIterable, Identifiable {
         case .large: return "Velké soubory"
         case .old: return "Staré soubory"
         case .uninstall: return "Odinstalace aplikací"
+        case .performance: return "Výkon"
         case .lens: return "Mapa disku"
         case .dupes: return "Duplicity"
         }
@@ -24,7 +25,8 @@ enum CleanModule: String, CaseIterable, Identifiable {
         case .large: return "Co zabírá nejvíc místa"
         case .old: return "Soubory, které jsi dlouho neotevřel (i menší než 100 MB)"
         case .uninstall: return "Aplikace i se všemi soubory, zbytky po smazaných aplikacích"
-        case .lens: return "Kde je místo – klikni na blok a jdi hlouběji"
+        case .performance: return "Služby při startu, položky při přihlášení, údržba"
+        case .lens: return "Kde je místo – klikni na bublinu a jdi hlouběji"
         case .dupes: return "Stejné soubory podle obsahu (SHA-256)"
         }
     }
@@ -35,7 +37,8 @@ enum CleanModule: String, CaseIterable, Identifiable {
         case .large: return "arrow.up.doc"
         case .old: return "clock.arrow.circlepath"
         case .uninstall: return "xmark.app"
-        case .lens: return "square.grid.3x3.square"
+        case .performance: return "bolt.fill"
+        case .lens: return "circle.hexagongrid"
         case .dupes: return "doc.on.doc"
         }
     }
@@ -43,19 +46,23 @@ enum CleanModule: String, CaseIterable, Identifiable {
 
 @MainActor
 final class CleanHub: ObservableObject {
-    @Published var module: CleanModule = .smart
+    @Published var module: CleanModule = .smart { didSet { C.module = module } }
     let junk = JunkModel()
     let large = LargeOldModel()
     let old = LargeOldModel(oldMode: true)
     let uninstall = UninstallModel()
+    let perf = PerformanceModel()
     let lens = SpaceLensModel()
     let dupes = DuplicatesModel()
+
+    init() { C.module = .smart }
 
     func smartScan() {
         junk.scan()
         large.minSizeMB = 500
         large.scan()
         uninstall.scanOrphans()
+        perf.scan()
     }
 }
 
@@ -69,11 +76,15 @@ enum CleanupWindow {
     static func show() {
         if let w = window { w.makeKeyAndOrderFront(nil); return }
         let h = CleanHub()
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1120, height: 720),
-                         styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 760),
+                         styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
         w.title = "Úklid"
+        w.titlebarAppearsTransparent = true
+        w.titleVisibility = .hidden
+        w.isMovableByWindowBackground = true
         w.isReleasedWhenClosed = false
-        w.contentView = NSHostingView(rootView: CleanRootView(hub: h).preferredColorScheme(FTSettings.shared.isDark ? .dark : .light))
+        w.appearance = NSAppearance(named: .darkAqua)
+        w.contentView = NSHostingView(rootView: CleanRootView(hub: h).preferredColorScheme(.dark))
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { _ in
             MainActor.assumeIsolated {
                 hub?.junk.stop(); hub?.large.stop(); hub?.old.stop(); hub?.dupes.stop()
@@ -90,81 +101,98 @@ struct CleanRootView: View {
     @ObservedObject var hub: CleanHub
     @ObservedObject var volumes = SidebarModel.shared
 
-    private var bootFree: String {
-        volumes.volumes.first { $0.url.path == "/" }.map { Fmt.bytes($0.free) + " volných" } ?? ""
-    }
+    private var boot: SidebarVolume? { volumes.volumes.first { $0.url.path == "/" } }
 
     var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("ÚKLID").font(.system(size: 11, weight: .semibold)).tracking(0.6).foregroundStyle(UI.textTertiary)
-                    .padding(.horizontal, 10).padding(.top, 16).padding(.bottom, 6)
-                ForEach(CleanModule.allCases) { m in
-                    let on = hub.module == m
-                    Button { hub.module = m } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: m.icon).font(.system(size: 13)).frame(width: 20)
-                                .foregroundStyle(on ? UI.accent : UI.textSecondary)
-                            Text(m.title).font(.system(size: 13, weight: on ? .semibold : .regular))
-                                .foregroundStyle(on ? UI.text : UI.textSecondary)
-                            Spacer()
+        ZStack {
+            hub.module.gradient.ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.35), value: hub.module)
+            // jemná záře v rohu jako v CMM
+            RadialGradient(colors: [hub.module.palette.accent.opacity(0.28), .clear], center: .topTrailing, startRadius: 10, endRadius: 520)
+                .ignoresSafeArea()
+            HStack(spacing: 0) {
+                rail
+                VStack(spacing: 0) {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 2) {
+                            Text(hub.module.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(C.text2)
                         }
-                        .padding(.horizontal, 10).frame(height: 34)
-                        .background(RoundedRectangle(cornerRadius: SK.inputRadius).fill(on ? UI.rowSelected : SwiftUI.Color.clear))
-                        .contentShape(Rectangle())
+                        Spacer()
                     }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
-                if !CleanFS.hasFullDiskAccess {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("Omezený přístup", systemImage: "lock.trianglebadge.exclamationmark").font(.system(size: 11.5, weight: .semibold))
-                            .foregroundStyle(UI.warn)
-                        Text("Bez Plného přístupu k disku nevidí FileTool Koš, Mail a další složky.")
-                            .font(.system(size: 10.5)).foregroundStyle(UI.textSecondary).fixedSize(horizontal: false, vertical: true)
-                        Button("Nastavit přístup…") { Permissions.guide() }.buttonStyle(SKButton())
+                    .frame(height: 38)
+                    Group {
+                        switch hub.module {
+                        case .smart: SmartScanView(hub: hub, junk: hub.junk, large: hub.large, un: hub.uninstall, perf: hub.perf)
+                        case .junk: JunkView(m: hub.junk)
+                        case .large: LargeOldView(m: hub.large)
+                        case .old: LargeOldView(m: hub.old)
+                        case .uninstall: UninstallView(m: hub.uninstall)
+                        case .performance: PerformanceView(m: hub.perf)
+                        case .lens: SpaceLensView(m: hub.lens)
+                        case .dupes: DuplicatesView(m: hub.dupes)
+                        }
                     }
-                    .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(UI.card.opacity(0.6)))
+                    .id(hub.module)
+                    .scrollContentBackground(.hidden)          // seznamy a tabulky průhledné na přechodu
+                    .padding(.horizontal, 26).padding(.bottom, 22).padding(.top, 6)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                HStack(spacing: 6) {
-                    Image(systemName: "internaldrive").foregroundStyle(UI.textTertiary)
-                    Text("Macintosh HD · \(bootFree)").font(.system(size: 10.5)).foregroundStyle(UI.textTertiary)
+            }
+        }
+        .foregroundStyle(C.text)
+        .tint(C.accent)
+        .frame(minWidth: 1040, minHeight: 660)
+    }
+
+    /// Lišta modulů vlevo: barevné dlaždice s ikonou, název, dole disk a oprávnění.
+    private var rail: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Spacer().frame(height: 34)
+            ForEach(CleanModule.allCases) { m in
+                let on = hub.module == m
+                Button { withAnimation(.easeInOut(duration: 0.25)) { hub.module = m } } label: {
+                    HStack(spacing: 10) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(LinearGradient(colors: [m.palette.accent, m.palette.bottom], startPoint: .top, endPoint: .bottom))
+                            Image(systemName: m.icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                        }
+                        .frame(width: 28, height: 28)
+                        .shadow(color: on ? m.palette.accent.opacity(0.6) : .clear, radius: 6)
+                        Text(m.title).font(.system(size: 12.5, weight: on ? .semibold : .regular))
+                            .foregroundStyle(on ? C.text : C.text2)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8).frame(height: 40)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(on ? C.selected : .clear))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+            if !Permissions.hasFullDiskAccess {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Omezený přístup", systemImage: "lock.trianglebadge.exclamationmark").font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(.yellow)
+                    Text("Bez Plného přístupu k disku nevidí FileTool Koš, Mail a další složky.")
+                        .font(.system(size: 10.5)).foregroundStyle(C.text2).fixedSize(horizontal: false, vertical: true)
+                    Button("Nastavit přístup…") { Permissions.guide() }.buttonStyle(GlassButton())
+                }
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 12).fill(C.card))
+            }
+            if let b = boot {
+                VStack(alignment: .leading, spacing: 5) {
+                    Label("Macintosh HD", systemImage: "internaldrive").font(.system(size: 11.5, weight: .semibold)).foregroundStyle(C.text)
+                    Text("\(Fmt.bytes(b.free)) volných").font(.system(size: 10.5)).foregroundStyle(C.text2)
                 }
                 .padding(10)
             }
-            .padding(.horizontal, 10)
-            .frame(width: 230)
-            .background(UI.sidebar)
-            Rectangle().fill(UI.border).frame(width: 1)
-            VStack(spacing: 0) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(hub.module.title).font(SK.pageTitleFont).foregroundStyle(UI.text)
-                        Text(hub.module.subtitle).font(SK.subtitleFont).foregroundStyle(UI.textSecondary)
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 24).frame(height: 72).background(UI.chrome)
-                Rectangle().fill(UI.border).frame(height: 1)
-                Group {
-                    switch hub.module {
-                    case .smart: SmartScanView(hub: hub, junk: hub.junk, large: hub.large, un: hub.uninstall)
-                    case .junk: JunkView(m: hub.junk)
-                    case .large: LargeOldView(m: hub.large)
-                    case .old: LargeOldView(m: hub.old)
-                    case .uninstall: UninstallView(m: hub.uninstall)
-                    case .lens: SpaceLensView(m: hub.lens)
-                    case .dupes: DuplicatesView(m: hub.dupes)
-                    }
-                }
-                .padding(20)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            }
-            .background(UI.app)
         }
-        .frame(minWidth: 980, minHeight: 620)
-        .tint(UI.accent)
+        .padding(.horizontal, 10).padding(.bottom, 10)
+        .frame(width: 220)
+        .background(C.rail)
     }
 }
 
@@ -177,8 +205,8 @@ struct BigActionButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().fill(LinearGradient(colors: [UI.accent, UI.accent.opacity(0.65)], startPoint: .top, endPoint: .bottom))
-                    .shadow(color: UI.accent.opacity(0.45), radius: 14)
+                Circle().fill(LinearGradient(colors: [C.accent, C.accent.opacity(0.65)], startPoint: .top, endPoint: .bottom))
+                    .shadow(color: C.accent.opacity(0.45), radius: 14)
                 if running { ProgressView().controlSize(.large).tint(.white) }
                 else { Text(title).font(.system(size: 17, weight: .semibold)).foregroundStyle(.white) }
             }
@@ -194,7 +222,7 @@ struct CheckBox: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: state == true ? "checkmark.square.fill" : state == nil ? "minus.square.fill" : "square")
-                .font(.system(size: 14)).foregroundStyle(state == false ? UI.textTertiary : UI.accent)
+                .font(.system(size: 14)).foregroundStyle(state == false ? C.text3 : C.accent)
         }
         .buttonStyle(.plain)
     }
@@ -209,12 +237,12 @@ struct ScanBar: View {
     var body: some View {
         HStack(spacing: 10) {
             if running {
-                if let stop { Button("Zastavit", action: stop).buttonStyle(SKButton()) }
+                if let stop { Button("Zastavit", action: stop).buttonStyle(GlassButton()) }
                 ProgressView().controlSize(.small)
             } else {
-                Button(scanTitle, action: scan).buttonStyle(SKButton(kind: .primary)).keyboardShortcut(.defaultAction)
+                Button(scanTitle, action: scan).buttonStyle(GlassButton(prominent: true)).keyboardShortcut(.defaultAction)
             }
-            Text(status).font(SK.helpFont).foregroundStyle(UI.textSecondary).lineLimit(1)
+            Text(status).font(SK.helpFont).foregroundStyle(C.text2).lineLimit(1)
             Spacer()
         }
     }
@@ -222,13 +250,13 @@ struct ScanBar: View {
 
 private func folderPicker(_ path: Binding<String>) -> some View {
     HStack(spacing: 6) {
-        Text("Ve složce").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+        Text("Ve složce").font(SK.helpFont).foregroundStyle(C.text2)
         TextField("", text: path).textFieldStyle(.roundedBorder).font(SK.monoFont).frame(minWidth: 220)
         Button("Vybrat…") {
             let p = NSOpenPanel(); p.canChooseDirectories = true; p.canChooseFiles = false
             p.directoryURL = URL(fileURLWithPath: path.wrappedValue)
             if p.runModal() == .OK, let u = p.url { path.wrappedValue = u.path }
-        }.buttonStyle(SKButton())
+        }.buttonStyle(GlassButton())
     }
 }
 
@@ -241,53 +269,96 @@ struct SmartScanView: View {
     @ObservedObject var junk: JunkModel
     @ObservedObject var large: LargeOldModel
     @ObservedObject var un: UninstallModel
+    @ObservedObject var perf: PerformanceModel
 
-    private var running: Bool { junk.running || large.running || un.running }
+    private var running: Bool { junk.running || large.running || un.running || perf.running }
     private var scanned: Bool { junk.scanned }
+    private var trash: Int64 { junk.categories.first { $0.id == "trash" }?.size ?? 0 }
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer(minLength: 10)
+        VStack(spacing: 22) {
             if !scanned && !running {
-                Image(systemName: "sparkles").font(.system(size: 54)).foregroundStyle(UI.accent)
-                Text("Najdi, co na Macu zbytečně zabírá místo").font(.system(size: 18, weight: .semibold)).foregroundStyle(UI.text)
-                Text("Prohledá mezipaměti a logy, vývojářské soubory, staré instalátory, soubory nad 500 MB a zbytky po smazaných aplikacích. Nic se nesmaže bez tvého potvrzení.")
-                    .font(SK.bodyFont).foregroundStyle(UI.textSecondary).multilineTextAlignment(.center).frame(maxWidth: 520)
-            }
-            if scanned || running {
-                HStack(spacing: 14) {
-                    card("Systémový odpad", "trash.circle", junk.running ? "…" : Fmt.bytes(junk.totalChecked),
-                         junk.running ? junk.status : "k vyčištění (z \(Fmt.bytes(junk.total)))", .junk)
-                    card("Velké soubory", "doc.badge.clock", large.running ? "…" : Fmt.bytes(large.files.reduce(0) { $0 + $1.size }),
-                         large.running ? large.status : "\(large.files.count) souborů nad \(large.minSizeMB) MB", .large)
-                    card("Zbytky aplikací", "xmark.app", un.running ? "…" : Fmt.bytes(un.orphans.reduce(0) { $0 + $1.size }),
-                         un.running ? un.status : "\(un.orphans.count) položek po smazaných aplikacích", .uninstall)
+                Spacer()
+                ZStack {
+                    Circle().fill(RadialGradient(colors: [C.accent.opacity(0.55), .clear], center: .center, startRadius: 4, endRadius: 140))
+                        .frame(width: 280, height: 280)
+                    Image(systemName: "sparkles").font(.system(size: 80, weight: .light)).foregroundStyle(.white)
+                }
+                Text("Vítej v Úklidu").font(.system(size: 30, weight: .bold)).foregroundStyle(C.text)
+                Text("Najde odpad, velké soubory, zbytky aplikací a zbytečné služby při startu. Nic se nesmaže bez tvého potvrzení.")
+                    .font(.system(size: 14)).foregroundStyle(C.text2).multilineTextAlignment(.center).frame(maxWidth: 520)
+                BigActionButton(title: "Prohledat", running: false) { hub.smartScan() }
+                Spacer()
+            } else {
+                VStack(spacing: 10) {
+                    Text(running ? "Prohledávám tvůj Mac…" : "Na tvém Macu je \(Fmt.bytes(junk.total)) odpadu.")
+                        .font(.system(size: 26, weight: .semibold)).foregroundStyle(C.text)
+                    HStack(spacing: 10) {
+                        Button("Zkontrolovat odpad") { hub.module = .junk }.buttonStyle(GlassButton())
+                        Button(running ? "…" : "Prohledat znovu") { hub.smartScan() }.buttonStyle(GlassButton()).disabled(running)
+                    }
+                }
+                .padding(.top, 8)
+                HStack(alignment: .top, spacing: 16) {
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(junk.running ? "Hledám systémový odpad…" : "\(Fmt.bytes(junk.totalChecked)) systémového odpadu")
+                                .font(.system(size: 19, weight: .semibold)).foregroundStyle(C.text)
+                            Text("Mezipaměti, logy, vývojářské soubory a staré instalátory, které si aplikace znovu vytvoří.")
+                                .font(.system(size: 12.5)).foregroundStyle(C.text2)
+                            Spacer()
+                            HStack(spacing: 22) {
+                                Image(systemName: "shippingbox").font(.system(size: 34))
+                                Image(systemName: "trash.circle.fill").font(.system(size: 64))
+                                Image(systemName: "doc.text").font(.system(size: 34))
+                            }
+                            .foregroundStyle(C.accent).frame(maxWidth: .infinity)
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Button("Zkontrolovat") { hub.module = .junk }.buttonStyle(GlassButton())
+                                Button("Vyčistit") { junk.clean() }.buttonStyle(GlassButton(prominent: true))
+                                    .disabled(junk.running || junk.totalChecked == 0)
+                            }
+                        }
+                    }
+                    VStack(spacing: 16) {
+                        smallCard(title: large.running ? "Hledám velké soubory…" : "\(large.files.count) souborů nad \(large.minSizeMB) MB",
+                                  text: large.running ? large.status : "Celkem \(Fmt.bytes(large.files.reduce(0) { $0 + $1.size })) – zkontroluj, co už nepotřebuješ.",
+                                  icon: "arrow.up.doc.fill", target: .large)
+                        smallCard(title: un.running ? "Hledám zbytky aplikací…" : "\(Fmt.bytes(un.orphans.reduce(0) { $0 + $1.size })) zbytků aplikací",
+                                  text: "\(un.orphans.count) položek v Knihovně po aplikacích, které už na Macu nejsou.",
+                                  icon: "xmark.app.fill", target: .uninstall)
+                        smallCard(title: perf.running ? "Načítám služby…" : "\(perf.items.filter { !$0.disabled }.count) služeb při startu",
+                                  text: "\(perf.items.filter { $0.orphan && !$0.disabled }.count) po odinstalovaných aplikacích, \(perf.items.filter { !$0.signedOK && !$0.disabled }.count) bez platného podpisu.",
+                                  icon: "bolt.fill", target: .performance)
+                        if trash > 0 {
+                            smallCard(title: "\(Fmt.bytes(trash)) v Koši", text: "Vysypáním Koše se místo opravdu uvolní.", icon: "trash.fill", target: .junk)
+                        }
+                    }
+                    .frame(width: 400)
                 }
             }
-            HStack(spacing: 30) {
-                BigActionButton(title: scanned ? "Znovu" : "Prohledat", running: running) { hub.smartScan() }
-                if scanned && !running && junk.totalChecked > 0 {
-                    BigActionButton(title: "Vyčistit", running: false) { junk.clean() }
-                        .tip("Vyčistí zaškrtnutý systémový odpad (\(Fmt.bytes(junk.totalChecked))). Velké soubory a zbytky zkontroluj v jejich modulech.")
-                }
-            }
-            Spacer()
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func card(_ title: String, _ icon: String, _ value: String, _ detail: String, _ target: CleanModule) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(UI.text)
-            Text(value).font(.system(size: 26, weight: .bold)).foregroundStyle(UI.accent)
-            Text(detail).font(SK.helpFont).foregroundStyle(UI.textSecondary).lineLimit(2)
-            Spacer(minLength: 0)
-            Button("Zkontrolovat") { hub.module = target }.buttonStyle(SKButton())
+    private func smallCard(title: String, text: String, icon: String, target: CleanModule) -> some View {
+        GlassCard(padding: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).font(.system(size: 15, weight: .semibold)).foregroundStyle(C.text)
+                    Text(text).font(.system(size: 11.5)).foregroundStyle(C.text2).lineLimit(2)
+                }
+                Spacer()
+                VStack(alignment: .trailing) {
+                    Image(systemName: icon).font(.system(size: 26)).foregroundStyle(target.palette.accent)
+                    Spacer()
+                    Button("Zkontrolovat") { hub.module = target }.buttonStyle(GlassButton())
+                }
+            }
         }
-        .padding(16)
-        .frame(width: 230, height: 170, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 12).fill(UI.card.opacity(0.6)))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(UI.border, lineWidth: 1))
+        .frame(height: 104)
     }
 }
 
@@ -303,14 +374,14 @@ struct JunkView: View {
                 VStack(spacing: 8) {
                     ForEach(m.categories) { cat in category(cat) }
                     if m.scanned && m.categories.isEmpty {
-                        Text("Nic k vyčištění 🎉").foregroundStyle(UI.textSecondary).padding(30)
+                        Text("Nic k vyčištění 🎉").foregroundStyle(C.text2).padding(30)
                     }
                 }
             }
             HStack {
-                Text("Vybráno \(Fmt.bytes(m.totalChecked))").font(.system(size: 13, weight: .semibold)).foregroundStyle(UI.text)
+                Text("Vybráno \(Fmt.bytes(m.totalChecked))").font(.system(size: 13, weight: .semibold)).foregroundStyle(C.text)
                 Spacer()
-                Button("Vyčistit") { m.clean() }.buttonStyle(SKButton(kind: .primary)).disabled(m.totalChecked == 0 || m.running)
+                Button("Vyčistit") { m.clean() }.buttonStyle(GlassButton(prominent: true)).disabled(m.totalChecked == 0 || m.running)
             }
         }
     }
@@ -320,22 +391,22 @@ struct JunkView: View {
         return VStack(spacing: 0) {
             HStack(spacing: 10) {
                 CheckBox(state: m.state(cat)) { m.toggleCategory(cat) }
-                Image(systemName: cat.icon).font(.system(size: 15)).foregroundStyle(cat.permanent ? UI.error : UI.accent).frame(width: 22)
+                Image(systemName: cat.icon).font(.system(size: 15)).foregroundStyle(cat.permanent ? Color(red: 1, green: 0.45, blue: 0.45) : C.accent).frame(width: 22)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(cat.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(UI.text)
-                    Text(cat.help).font(SK.helpFont).foregroundStyle(UI.textSecondary).lineLimit(1)
+                    Text(cat.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(C.text)
+                    Text(cat.help).font(SK.helpFont).foregroundStyle(C.text2).lineLimit(1)
                 }
                 Spacer()
                 let sel = cat.items.filter { m.checked.contains($0.id) }.reduce(Int64(0)) { $0 + $1.size }
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(Fmt.bytes(sel)).font(.system(size: 13, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(sel > 0 ? UI.accent : UI.textTertiary)
-                    Text("z \(Fmt.bytes(cat.size))").font(.system(size: 10.5).monospacedDigit()).foregroundStyle(UI.textSecondary)
+                        .foregroundStyle(sel > 0 ? C.accent : C.text3)
+                    Text("z \(Fmt.bytes(cat.size))").font(.system(size: 10.5).monospacedDigit()).foregroundStyle(C.text2)
                 }
                 Button {
                     if open { m.expanded.remove(cat.id) } else { m.expanded.insert(cat.id) }
                 } label: {
-                    Image(systemName: "chevron.right").rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(UI.textSecondary)
+                    Image(systemName: "chevron.right").rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(C.text2)
                 }
                 .buttonStyle(.plain).tip("\(cat.items.count) položek")
             }
@@ -347,21 +418,21 @@ struct JunkView: View {
                             CheckBox(state: m.checked.contains(i.id)) {
                                 if m.checked.contains(i.id) { m.checked.remove(i.id) } else { m.checked.insert(i.id) }
                             }
-                            Text(i.name).font(.system(size: 12)).foregroundStyle(i.note.isEmpty ? UI.text : UI.warn).lineLimit(1)
+                            Text(i.name).font(.system(size: 12)).foregroundStyle(i.note.isEmpty ? C.text : Color.yellow).lineLimit(1)
                             Spacer()
-                            Text(Fmt.bytes(i.size)).font(.system(size: 12).monospacedDigit()).foregroundStyle(UI.textSecondary)
+                            Text(Fmt.bytes(i.size)).font(.system(size: 12).monospacedDigit()).foregroundStyle(C.text2)
                             Button { NSWorkspace.shared.activateFileViewerSelecting([i.url]) } label: { Image(systemName: "magnifyingglass") }
-                                .buttonStyle(.plain).foregroundStyle(UI.textTertiary).tip("Zobrazit ve Finderu")
+                                .buttonStyle(.plain).foregroundStyle(C.text3).tip("Zobrazit ve Finderu")
                         }
                         .padding(.horizontal, 12).padding(.leading, 34).frame(height: 26)
                     }
-                    if cat.items.count > 300 { Text("… a dalších \(cat.items.count - 300)").font(SK.helpFont).foregroundStyle(UI.textTertiary).padding(6) }
+                    if cat.items.count > 300 { Text("… a dalších \(cat.items.count - 300)").font(SK.helpFont).foregroundStyle(C.text3).padding(6) }
                 }
                 .padding(.bottom, 8)
             }
         }
-        .background(RoundedRectangle(cornerRadius: SK.cardRadius).fill(UI.card.opacity(0.55)))
-        .overlay(RoundedRectangle(cornerRadius: SK.cardRadius).stroke(UI.border, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: SK.cardRadius).fill(C.card.opacity(0.55)))
+        .overlay(RoundedRectangle(cornerRadius: SK.cardRadius).stroke(C.border, lineWidth: 1))
     }
 }
 
@@ -374,7 +445,7 @@ struct LargeOldView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 folderPicker($m.root)
-                Text("Větší než").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Text("Větší než").font(SK.helpFont).foregroundStyle(C.text2)
                 SKMenuPicker(selection: $m.minSizeMB, options: m.oldMode
                              ? [(1, "1 MB"), (10, "10 MB"), (50, "50 MB"), (100, "100 MB")]
                              : [(10, "10 MB"), (50, "50 MB"), (100, "100 MB"), (500, "500 MB"), (1024, "1 GB")], width: 100)
@@ -382,18 +453,18 @@ struct LargeOldView: View {
             }
             ScanBar(running: m.running, status: m.status, scan: { m.scan() }, stop: { m.stop() })
             HStack(spacing: 12) {
-                Text("Typ").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Text("Typ").font(SK.helpFont).foregroundStyle(C.text2)
                 SKMenuPicker(selection: $m.kind, options: FileKind.allCases.map { ($0, $0.title) }, width: 150)
-                Text("Stáří").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Text("Stáří").font(SK.helpFont).foregroundStyle(C.text2)
                 SKMenuPicker(selection: $m.age, options: AgeFilter.allCases.filter { !m.oldMode || $0 != .anyAge }.map { ($0, $0.title) }, width: 210)
-                Text("Řadit").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Text("Řadit").font(SK.helpFont).foregroundStyle(C.text2)
                 Menu {
                     ForEach(BigSort.allCases) { s in Button(s.title) { m.sortOrder = s.comparators } }
                 } label: { Image(systemName: "arrow.up.arrow.down") }
                 .menuStyle(.borderlessButton).fixedSize()
                 .tip("Předvolby řazení. „Velké a zároveň staré“ = velikost × doba bez otevření. Řadit jde i klikem na hlavičku sloupce.")
                 Spacer()
-                Text("\(m.shown.count) · \(Fmt.bytes(m.shownSize))").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Text("\(m.shown.count) · \(Fmt.bytes(m.shownSize))").font(SK.helpFont).foregroundStyle(C.text2)
             }
             Table(m.shown, selection: $m.selection, sortOrder: $m.sortOrder) {
                 TableColumn("Název", value: \.name) { f in
@@ -404,28 +475,30 @@ struct LargeOldView: View {
                 }
                 TableColumn("Umístění", value: \.folder) { f in
                     Text(f.folder.replacingOccurrences(of: CleanFS.home, with: "~"))
-                        .lineLimit(1).truncationMode(.middle).foregroundStyle(UI.textSecondary)
+                        .lineLimit(1).truncationMode(.middle).foregroundStyle(C.text2)
                 }
                 TableColumn("Velikost", value: \.size) { f in Text(Fmt.bytes(f.size)).monospacedDigit() }.width(85)
                 TableColumn("Naposledy otevřeno", value: \.lastUsedKey) { f in Text(dateText(f.lastUsed)).monospacedDigit() }.width(125)
                 TableColumn("Změněno", value: \.modifiedKey) { f in Text(dateText(f.modified)).monospacedDigit() }.width(115)
             }
+            .scrollContentBackground(.hidden)
+            .background(RoundedRectangle(cornerRadius: 14).fill(C.card))
             .contextMenu(forSelectionType: URL.self) { _ in
                 Button("Zobrazit ve Finderu") { NSWorkspace.shared.activateFileViewerSelecting(Array(m.selection)) }
                 Button("Přesunout do Koše…") { m.trashSelected() }
             } primaryAction: { urls in NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) }
             HStack {
                 Text(m.selection.isEmpty ? "Vyber soubory (⌘ / ⇧ + klik)" : "Vybráno \(m.selection.count) · \(Fmt.bytes(m.selectedSize))")
-                    .font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                    .font(SK.helpFont).foregroundStyle(C.text2)
                 Spacer()
                 Button("Zobrazit v panelu") {
                     let urls = (m.selection.isEmpty ? m.shown.map(\.url) : Array(m.selection))
                     Commander.shared.tab.showResults(urls, title: m.oldMode ? "Staré soubory" : "Velké soubory")
                     NSApp.mainWindow?.makeKeyAndOrderFront(nil)
                 }
-                .buttonStyle(SKButton()).disabled(m.shown.isEmpty)
+                .buttonStyle(GlassButton()).disabled(m.shown.isEmpty)
                 .tip("Výsledky jako seznam v aktivním panelu – např. zkopírovat na externí disk (F5) a pak smazat")
-                Button("Přesunout do Koše…") { m.trashSelected() }.buttonStyle(SKButton(kind: .primary)).disabled(m.selection.isEmpty)
+                Button("Přesunout do Koše…") { m.trashSelected() }.buttonStyle(GlassButton(prominent: true)).disabled(m.selection.isEmpty)
             }
         }
     }
@@ -445,7 +518,7 @@ struct UninstallView: View {
                 .pickerStyle(.segmented).labelsHidden().frame(width: 420)
                 Spacer()
                 if m.running { ProgressView().controlSize(.small) }
-                Text(m.status).font(SK.helpFont).foregroundStyle(UI.textSecondary).lineLimit(1)
+                Text(m.status).font(SK.helpFont).foregroundStyle(C.text2).lineLimit(1)
             }
             if m.showOrphans { orphans } else { appsPane }
         }
@@ -478,41 +551,41 @@ struct UninstallView: View {
                     HStack(spacing: 12) {
                         Image(nsImage: NSWorkspace.shared.icon(forFile: a.url.path)).resizable().frame(width: 56, height: 56)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(a.name).font(.system(size: 18, weight: .semibold)).foregroundStyle(UI.text)
-                            Text("\(a.bundleID) · verze \(a.version)").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                            Text(a.name).font(.system(size: 18, weight: .semibold)).foregroundStyle(C.text)
+                            Text("\(a.bundleID) · verze \(a.version)").font(SK.helpFont).foregroundStyle(C.text2)
                             Text("Aplikace \(a.size < 0 ? "…" : Fmt.bytes(a.size)) + data \(Fmt.bytes(m.relatedChecked))")
-                                .font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                                .font(SK.helpFont).foregroundStyle(C.text2)
                         }
                     }
-                    Text("Související soubory").font(SK.titleFont).foregroundStyle(UI.text)
+                    Text("Související soubory").font(SK.titleFont).foregroundStyle(C.text)
                     ScrollView {
                         VStack(spacing: 0) {
-                            if m.related.isEmpty { Text("Žádná nalezená data v ~/Library.").font(SK.helpFont).foregroundStyle(UI.textSecondary).padding(10) }
+                            if m.related.isEmpty { Text("Žádná nalezená data v ~/Library.").font(SK.helpFont).foregroundStyle(C.text2).padding(10) }
                             ForEach(m.related) { i in
                                 HStack(spacing: 10) {
                                     CheckBox(state: m.checkedRelated.contains(i.id)) {
                                         if m.checkedRelated.contains(i.id) { m.checkedRelated.remove(i.id) } else { m.checkedRelated.insert(i.id) }
                                     }
                                     Text(i.name).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
-                                        .foregroundStyle(i.note.hasSuffix("podle názvu, ověř") ? UI.warn : UI.text)
+                                        .foregroundStyle(i.note.hasSuffix("podle názvu, ověř") ? Color.yellow : C.text)
                                     Spacer()
-                                    Text(Fmt.bytes(i.size)).font(.system(size: 12).monospacedDigit()).foregroundStyle(UI.textSecondary)
+                                    Text(Fmt.bytes(i.size)).font(.system(size: 12).monospacedDigit()).foregroundStyle(C.text2)
                                     Button { NSWorkspace.shared.activateFileViewerSelecting([i.url]) } label: { Image(systemName: "magnifyingglass") }
-                                        .buttonStyle(.plain).foregroundStyle(UI.textTertiary)
+                                        .buttonStyle(.plain).foregroundStyle(C.text3)
                                 }
                                 .padding(.horizontal, 10).frame(height: 26)
                             }
                         }
                     }
-                    .background(RoundedRectangle(cornerRadius: SK.cardRadius).fill(UI.card.opacity(0.55)))
+                    .background(RoundedRectangle(cornerRadius: SK.cardRadius).fill(C.card.opacity(0.55)))
                     HStack {
-                        Text("Odstraní se aplikace a zaškrtnutá data – vše do Koše.").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                        Text("Odstraní se aplikace a zaškrtnutá data – vše do Koše.").font(SK.helpFont).foregroundStyle(C.text2)
                         Spacer()
-                        Button("Odinstalovat") { m.uninstall() }.buttonStyle(SKButton(kind: .danger))
+                        Button("Odinstalovat") { m.uninstall() }.buttonStyle(GlassButton(danger: true))
                     }
                 } else {
                     Spacer()
-                    Text("Vyber aplikaci vlevo").font(SK.bodyFont).foregroundStyle(UI.textSecondary).frame(maxWidth: .infinity)
+                    Text("Vyber aplikaci vlevo").font(SK.bodyFont).foregroundStyle(C.text2).frame(maxWidth: .infinity)
                     Spacer()
                 }
             }
@@ -522,9 +595,9 @@ struct UninstallView: View {
     private var orphans: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Button(m.orphans.isEmpty ? "Najít zbytky" : "Hledat znovu") { m.scanOrphans() }.buttonStyle(SKButton(kind: .primary)).disabled(m.running)
+                Button(m.orphans.isEmpty ? "Najít zbytky" : "Hledat znovu") { m.scanOrphans() }.buttonStyle(GlassButton(prominent: true)).disabled(m.running)
                 Text("Položky v ~/Library pojmenované podle aplikace, která už na Macu není. Je to odhad – nic není zaškrtnuté předem.")
-                    .font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                    .font(SK.helpFont).foregroundStyle(C.text2)
             }
             List(m.orphans) { i in
                 HStack(spacing: 10) {
@@ -538,98 +611,176 @@ struct UninstallView: View {
                 }
             }
             HStack {
-                Button("Vybrat vše") { m.checkedOrphans = Set(m.orphans.map(\.id)) }.buttonStyle(SKButton()).disabled(m.orphans.isEmpty)
+                Button("Vybrat vše") { m.checkedOrphans = Set(m.orphans.map(\.id)) }.buttonStyle(GlassButton()).disabled(m.orphans.isEmpty)
                 Spacer()
                 Text("Vybráno \(Fmt.bytes(m.orphans.filter { m.checkedOrphans.contains($0.id) }.reduce(0) { $0 + $1.size }))")
-                    .font(SK.helpFont).foregroundStyle(UI.textSecondary)
-                Button("Přesunout do Koše…") { m.trashOrphans() }.buttonStyle(SKButton(kind: .primary)).disabled(m.checkedOrphans.isEmpty)
+                    .font(SK.helpFont).foregroundStyle(C.text2)
+                Button("Přesunout do Koše…") { m.trashOrphans() }.buttonStyle(GlassButton(prominent: true)).disabled(m.checkedOrphans.isEmpty)
             }
         }
     }
 }
 
-// MARK: - Mapa disku
+// MARK: - Mapa disku (bubliny)
+
+/// Rozmístění kruhů: největší uprostřed, další co nejblíž středu bez překryvu; nakonec se vše vejde do plochy.
+enum BubblePack {
+    static func layout(_ sizes: [Double], in rect: CGRect) -> [(center: CGPoint, r: CGFloat)] {
+        guard !sizes.isEmpty, rect.width > 10, rect.height > 10 else { return [] }
+        let maxS = sizes.max() ?? 1
+        let radii = sizes.map { CGFloat(max(0.06, sqrt($0 / max(maxS, 1)))) * 100 }   // relativní poloměry
+        var placed: [(CGPoint, CGFloat)] = []
+        let gap: CGFloat = 4
+        for r in radii {
+            if placed.isEmpty { placed.append((.zero, r)); continue }
+            var best: CGPoint?
+            var bestD = CGFloat.infinity
+            for (c, pr) in placed {
+                for k in 0..<36 {
+                    let a = CGFloat(k) / 36 * .pi * 2
+                    let p = CGPoint(x: c.x + cos(a) * (pr + r + gap), y: c.y + sin(a) * (pr + r + gap) * 0.82)
+                    let ok = placed.allSatisfy { hypot($0.0.x - p.x, $0.0.y - p.y) >= $0.1 + r + gap - 0.5 }
+                    let d = hypot(p.x, p.y * 1.25)
+                    if ok, d < bestD { bestD = d; best = p }
+                }
+            }
+            placed.append((best ?? CGPoint(x: CGFloat(placed.count) * 2 * r, y: 0), r))
+        }
+        let minX = placed.map { $0.0.x - $0.1 }.min()!, maxX = placed.map { $0.0.x + $0.1 }.max()!
+        let minY = placed.map { $0.0.y - $0.1 }.min()!, maxY = placed.map { $0.0.y + $0.1 }.max()!
+        let scale = min(rect.width / (maxX - minX), rect.height / (maxY - minY)) * 0.96
+        let ox = rect.midX - (minX + maxX) / 2 * scale, oy = rect.midY - (minY + maxY) / 2 * scale
+        return placed.map { (CGPoint(x: $0.0.x * scale + ox, y: $0.0.y * scale + oy), $0.1 * scale) }
+    }
+}
 
 struct SpaceLensView: View {
     @ObservedObject var m: SpaceLensModel
 
-    private let palette: [SwiftUI.Color] = [.blue, .purple, .pink, .orange, .teal, .indigo, .green, .mint, .cyan, .brown]
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 4) {
-                Button { m.up() } label: { Image(systemName: "chevron.left") }.buttonStyle(SKButton()).disabled(m.path.count < 2)
-                ForEach(m.path, id: \.self) { u in
-                    Button(u.path == "/" ? "Disk" : FileManager.default.displayName(atPath: u.path)) { m.open(u) }
-                        .buttonStyle(.plain).foregroundStyle(u == m.current ? UI.text : UI.accent)
-                    if u != m.current { Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(UI.textTertiary) }
-                }
-                Spacer()
-                if m.running { ProgressView().controlSize(.small) }
-                Text(Fmt.bytes(m.total)).font(.system(size: 13, weight: .semibold).monospacedDigit()).foregroundStyle(UI.text)
-                Menu("Začít od") {
-                    Button("Domovská složka") { m.setRoot(FileManager.default.homeDirectoryForCurrentUser) }
-                    Button("Celý disk (/)") { m.setRoot(URL(fileURLWithPath: "/")) }
-                    Button("Jiná složka…") {
-                        let p = NSOpenPanel(); p.canChooseDirectories = true; p.canChooseFiles = false
-                        if p.runModal() == .OK, let u = p.url { m.setRoot(u) }
-                    }
-                }
-                .frame(width: 110)
-                Button { m.load(force: true) } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(SKButton()).tip("Přepočítat")
-            }
-            HStack(alignment: .top, spacing: 14) {
-                GeometryReader { g in
-                    let shown = Array(m.nodes.filter { $0.size > 0 }.prefix(60))
-                    let rects = Treemap.layout(shown.map { Double($0.size) }, in: CGRect(origin: .zero, size: g.size))
-                    ZStack(alignment: .topLeading) {
-                        ForEach(Array(shown.enumerated()), id: \.element.id) { i, n in
-                            let r = i < rects.count ? rects[i] : .zero
-                            let color = palette[i % palette.count]
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(color.opacity(m.hover == n.url ? 0.95 : 0.7))
-                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(UI.app, lineWidth: 2))
-                                .overlay(alignment: .topLeading) {
-                                    if r.width > 70 && r.height > 34 {
-                                        VStack(alignment: .leading, spacing: 1) {
-                                            Text(n.name).font(.system(size: 11.5, weight: .semibold)).lineLimit(1)
-                                            Text(Fmt.bytes(n.size)).font(.system(size: 10.5))
-                                        }
-                                        .foregroundStyle(.white).padding(6)
-                                    }
-                                }
-                                .frame(width: max(0, r.width), height: max(0, r.height))
-                                .offset(x: r.minX, y: r.minY)
-                                .onHover { inside in m.hover = inside ? n.url : (m.hover == n.url ? nil : m.hover) }
-                                .onTapGesture { if n.isDir { m.open(n.url) } else { m.selection = n.url } }
-                                .tip("\(n.name) · \(Fmt.bytes(n.size))" + (n.isDir ? " · klikni pro vstup" : ""))
-                                .contextMenu { nodeMenu(n) }
+        HStack(alignment: .top, spacing: 18) {
+            // vlevo: disk + seznam se zaškrtávátky
+            VStack(spacing: 12) {
+                GlassCard(padding: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(m.current.path == "/" ? "Macintosh HD" : FileManager.default.displayName(atPath: m.current.path))
+                                .font(.system(size: 15, weight: .semibold))
+                            Spacer()
+                            Text(m.running ? "…" : Fmt.bytes(m.total)).font(.system(size: 12).monospacedDigit()).foregroundStyle(C.text2)
                         }
+                        Text("\(m.nodes.count) položek").font(.system(size: 11)).foregroundStyle(C.text3)
                     }
                 }
-                .frame(minWidth: 400)
-                List(m.nodes, selection: $m.selection) { n in
+                .frame(height: 74)
+                List(m.nodes) { n in
                     HStack(spacing: 8) {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: n.url.path)).resizable().frame(width: 16, height: 16)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(n.name).font(.system(size: 12)).lineLimit(1)
-                            GeometryReader { g in
-                                RoundedRectangle(cornerRadius: 2).fill(UI.accent.opacity(0.6))
-                                    .frame(width: g.size.width * CGFloat(m.total > 0 ? Double(n.size) / Double(m.total) : 0))
-                            }
-                            .frame(height: 3)
+                        CheckBox(state: m.checked.contains(n.url)) {
+                            if m.checked.contains(n.url) { m.checked.remove(n.url) } else { m.checked.insert(n.url) }
                         }
+                        .disabled(CleanFS.isProtected(n.url.path))
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: n.url.path)).resizable().frame(width: 22, height: 22)
+                        Text(n.name).font(.system(size: 12.5)).lineLimit(1).truncationMode(.middle)
                         Spacer()
-                        Text(n.size == 0 && m.running ? "…" : Fmt.bytes(n.size)).font(.system(size: 11).monospacedDigit()).foregroundStyle(.secondary)
+                        Text(n.size == 0 && m.running ? "…" : Fmt.bytes(n.size)).font(.system(size: 11.5).monospacedDigit()).foregroundStyle(C.text2)
                     }
-                    .tag(n.url)
-                    .contextMenu { nodeMenu(n) }
+                    .padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(m.hover == n.url ? C.hover : .clear))
+                    .contentShape(Rectangle())
                     .onTapGesture(count: 2) { if n.isDir { m.open(n.url) } }
+                    .contextMenu { nodeMenu(n) }
                 }
-                .frame(width: 300)
+                .background(RoundedRectangle(cornerRadius: 16).fill(C.card))
+            }
+            .frame(width: 360)
+            // vpravo: drobečky + bubliny
+            VStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    Button { m.up() } label: { Image(systemName: "chevron.left") }.buttonStyle(GlassButton()).disabled(m.path.count < 2)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            ForEach(m.path, id: \.self) { u in
+                                Button(u.path == "/" ? "Macintosh HD" : FileManager.default.displayName(atPath: u.path)) { m.open(u) }
+                                    .buttonStyle(.plain).font(.system(size: 12, weight: u == m.current ? .semibold : .regular))
+                                    .foregroundStyle(u == m.current ? C.text : C.text2)
+                                if u != m.current { Image(systemName: "chevron.right").font(.system(size: 9)).foregroundStyle(C.text3) }
+                            }
+                        }
+                    }
+                    if m.running { ProgressView().controlSize(.small) }
+                    Menu("Začít od") {
+                        Button("Domovská složka") { m.setRoot(FileManager.default.homeDirectoryForCurrentUser) }
+                        Button("Celý disk (/)") { m.setRoot(URL(fileURLWithPath: "/")) }
+                        Button("Jiná složka…") {
+                            let p = NSOpenPanel(); p.canChooseDirectories = true; p.canChooseFiles = false
+                            if p.runModal() == .OK, let u = p.url { m.setRoot(u) }
+                        }
+                    }
+                    .fixedSize()
+                    Button { m.load(force: true) } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(GlassButton()).tip("Přepočítat")
+                }
+                GeometryReader { g in
+                    let shown = Array(m.nodes.filter { $0.size > 0 }.prefix(24))
+                    let other = m.nodes.filter { $0.size > 0 }.dropFirst(24).reduce(Int64(0)) { $0 + $1.size }
+                    let sizes = shown.map { Double($0.size) } + (other > 0 ? [Double(other)] : [])
+                    let pack = BubblePack.layout(sizes, in: CGRect(origin: .zero, size: g.size))
+                    ZStack(alignment: .topLeading) {
+                        ForEach(Array(pack.enumerated()), id: \.offset) { i, b in
+                            if i < shown.count { bubble(shown[i], b.center, b.r) }
+                            else { otherBubble(other, b.center, b.r) }
+                        }
+                    }
+                }
+                HStack {
+                    let sel = m.nodes.filter { m.checked.contains($0.url) }
+                    Text(sel.isEmpty ? "Zaškrtni, co chceš odebrat" : "Vybráno \(sel.count) · \(Fmt.bytes(sel.reduce(0) { $0 + $1.size }))")
+                        .font(.system(size: 13, weight: .semibold))
+                    Spacer()
+                    Button("Zkontrolovat a odebrat") { m.trashChecked() }.buttonStyle(GlassButton(prominent: true)).disabled(sel.isEmpty)
+                }
             }
         }
         .onAppear { if m.nodes.isEmpty && !m.running { m.load() } }
+    }
+
+    private func bubble(_ n: LensNode, _ c: CGPoint, _ r: CGFloat) -> some View {
+        let checked = m.checked.contains(n.url), hover = m.hover == n.url
+        return ZStack {
+            Circle().fill(RadialGradient(colors: [C.accent.opacity(hover ? 0.55 : 0.38), C.accent.opacity(0.10)],
+                                         center: .center, startRadius: 2, endRadius: r))
+            Circle().stroke(checked ? C.accent : C.border, lineWidth: checked ? 4 : 1)
+            VStack(spacing: 3) {
+                if r > 34 {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: n.url.path)).resizable().frame(width: min(r * 0.55, 64), height: min(r * 0.55, 64))
+                }
+                if r > 26 {
+                    Text(n.name).font(.system(size: max(9, min(13, r / 6)), weight: .semibold)).lineLimit(1).truncationMode(.middle)
+                        .frame(maxWidth: r * 1.5)
+                    Text(Fmt.bytes(n.size)).font(.system(size: max(8.5, min(12, r / 7)))).foregroundStyle(C.text2)
+                }
+            }
+        }
+        .frame(width: r * 2, height: r * 2)
+        .contentShape(Circle())
+        .position(c)
+        .onHover { inside in m.hover = inside ? n.url : (m.hover == n.url ? nil : m.hover) }
+        .onTapGesture(count: 2) { if n.isDir { m.open(n.url) } }
+        .onTapGesture { if n.isDir { m.open(n.url) } else if !CleanFS.isProtected(n.url.path) { m.toggle(n.url) } }
+        .contextMenu { nodeMenu(n) }
+        .tip("\(n.name) · \(Fmt.bytes(n.size))" + (n.isDir ? " · klikni pro vstup" : " · klikni pro výběr"))
+    }
+
+    private func otherBubble(_ size: Int64, _ c: CGPoint, _ r: CGFloat) -> some View {
+        ZStack {
+            Circle().fill(C.card)
+            Circle().stroke(C.border, lineWidth: 1)
+            VStack(spacing: 2) {
+                Text("Ostatní").font(.system(size: max(9, min(12, r / 6)), weight: .semibold))
+                Text(Fmt.bytes(size)).font(.system(size: max(8.5, min(11, r / 7)))).foregroundStyle(C.text2)
+            }
+        }
+        .frame(width: r * 2, height: r * 2)
+        .position(c)
     }
 
     @ViewBuilder private func nodeMenu(_ n: LensNode) -> some View {
@@ -653,51 +804,51 @@ struct DuplicatesView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 folderPicker($m.root)
-                Text("Od velikosti").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Text("Od velikosti").font(SK.helpFont).foregroundStyle(C.text2)
                 SKMenuPicker(selection: $m.minSizeMB, options: [(0, "100 kB"), (1, "1 MB"), (10, "10 MB"), (100, "100 MB")], width: 100)
             }
             ScanBar(running: m.running, status: m.status, scan: { m.scan() }, stop: { m.stop() })
             HStack {
-                Button("Ponechat nejnovější") { m.autoSelect(keepNewest: true) }.buttonStyle(SKButton()).disabled(m.groups.isEmpty)
-                Button("Ponechat nejstarší") { m.autoSelect(keepNewest: false) }.buttonStyle(SKButton()).disabled(m.groups.isEmpty)
-                Button("Nic") { m.checked = [] }.buttonStyle(SKButton()).disabled(m.groups.isEmpty)
+                Button("Ponechat nejnovější") { m.autoSelect(keepNewest: true) }.buttonStyle(GlassButton()).disabled(m.groups.isEmpty)
+                Button("Ponechat nejstarší") { m.autoSelect(keepNewest: false) }.buttonStyle(GlassButton()).disabled(m.groups.isEmpty)
+                Button("Nic") { m.checked = [] }.buttonStyle(GlassButton()).disabled(m.groups.isEmpty)
                 Spacer()
-                Text("Zbytečně zabráno \(Fmt.bytes(m.wasted))").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Text("Zbytečně zabráno \(Fmt.bytes(m.wasted))").font(SK.helpFont).foregroundStyle(C.text2)
             }
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(m.groups) { g in
                         VStack(alignment: .leading, spacing: 0) {
                             HStack {
-                                Text(g.files[0].url.lastPathComponent).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(UI.text).lineLimit(1)
+                                Text(g.files[0].url.lastPathComponent).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(C.text).lineLimit(1)
                                 Spacer()
-                                Text("\(g.files.count)× \(Fmt.bytes(g.files[0].size))").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                                Text("\(g.files.count)× \(Fmt.bytes(g.files[0].size))").font(SK.helpFont).foregroundStyle(C.text2)
                             }
                             .padding(.horizontal, 12).padding(.vertical, 8)
                             ForEach(g.files) { f in
                                 HStack(spacing: 10) {
                                     CheckBox(state: m.checked.contains(f.id)) { m.toggle(f, in: g) }
                                     Text(f.url.deletingLastPathComponent().path.replacingOccurrences(of: CleanFS.home, with: "~"))
-                                        .font(.system(size: 11.5)).foregroundStyle(m.checked.contains(f.id) ? UI.textSecondary : UI.text)
+                                        .font(.system(size: 11.5)).foregroundStyle(m.checked.contains(f.id) ? C.text2 : C.text)
                                         .lineLimit(1).truncationMode(.middle)
                                     Spacer()
-                                    Text(Fmt.date.string(from: f.modified)).font(.system(size: 11).monospacedDigit()).foregroundStyle(UI.textTertiary)
+                                    Text(Fmt.date.string(from: f.modified)).font(.system(size: 11).monospacedDigit()).foregroundStyle(C.text3)
                                     Button { NSWorkspace.shared.activateFileViewerSelecting([f.url]) } label: { Image(systemName: "magnifyingglass") }
-                                        .buttonStyle(.plain).foregroundStyle(UI.textTertiary)
+                                        .buttonStyle(.plain).foregroundStyle(C.text3)
                                 }
                                 .padding(.horizontal, 12).padding(.leading, 6).frame(height: 24)
                             }
                         }
                         .padding(.bottom, 6)
-                        .background(RoundedRectangle(cornerRadius: SK.cardRadius).fill(UI.card.opacity(0.55)))
-                        .overlay(RoundedRectangle(cornerRadius: SK.cardRadius).stroke(UI.border, lineWidth: 1))
+                        .background(RoundedRectangle(cornerRadius: SK.cardRadius).fill(C.card.opacity(0.55)))
+                        .overlay(RoundedRectangle(cornerRadius: SK.cardRadius).stroke(C.border, lineWidth: 1))
                     }
                 }
             }
             HStack {
-                Text("Vybráno \(m.checked.count) · \(Fmt.bytes(m.checkedSize))").font(.system(size: 13, weight: .semibold)).foregroundStyle(UI.text)
+                Text("Vybráno \(m.checked.count) · \(Fmt.bytes(m.checkedSize))").font(.system(size: 13, weight: .semibold)).foregroundStyle(C.text)
                 Spacer()
-                Button("Přesunout do Koše…") { m.trashChecked() }.buttonStyle(SKButton(kind: .primary)).disabled(m.checked.isEmpty || m.running)
+                Button("Přesunout do Koše…") { m.trashChecked() }.buttonStyle(GlassButton(prominent: true)).disabled(m.checked.isEmpty || m.running)
             }
         }
     }

@@ -14,10 +14,11 @@ struct MainView: View {
     var body: some View {
         VStack(spacing: 0) {
             Toolbar(commander: commander, settings: settings)
-            Rectangle().fill(UI.border).frame(height: 1)
             HStack(spacing: 0) {
             if settings.showSidebar {
                 SidebarView(commander: commander, tab: commander.tab)
+                    .glassCard(radius: 12)
+                    .padding(.leading, 6).padding(.vertical, 6)
                     .frame(width: CGFloat(sidebarWidth))
                 SidebarHandle(width: $sidebarWidth)
             }
@@ -27,23 +28,30 @@ struct MainView: View {
                 let lw = min(max(w * CGFloat(split), minW), w - minW)
                 HStack(spacing: 0) {
                     PanelView(panel: commander.left, side: .left, commander: commander, settings: settings)
-                        .frame(width: max(0, lw - 0.5))
+                        .glassCard(radius: 12, active: commander.activeSide == .left, fill: UI.list)
+                        .frame(width: max(0, lw - 3))
                     SplitHandle(width: w, ratio: $split)
                     PanelView(panel: commander.right, side: .right, commander: commander, settings: settings)
+                        .glassCard(radius: 12, active: commander.activeSide == .right, fill: UI.list)
                 }
                 .coordinateSpace(name: "panels")
+                .padding(6)
             }
             }
             .coordinateSpace(name: "main")
             if !commander.ops.isEmpty {
-                Rectangle().fill(UI.border).frame(height: 1)
                 OpsBar(commander: commander)
+                    .glassCard(radius: 10, fill: Modern.glassStrong)
+                    .padding(.horizontal, 6).padding(.bottom, 4)
             }
-            Rectangle().fill(UI.border).frame(height: 1)
             CommandLineBar(commander: commander)
+                .glassCard(radius: 8, fill: UI.list.opacity(0.9))
+                .padding(.horizontal, 6)
             FunctionKeyBar(commander: commander)
+                .padding(.horizontal, 6).padding(.vertical, 5)
         }
-        .background(UI.app)
+        .background(ModernBackground())
+        .background(TransparentTitlebar())
         .sheet(item: $commander.output) { out in OutputSheet(out: out) { commander.output = nil } }
         .onAppear { DispatchQueue.main.async { commander.focus(commander.activeSide) } }
     }
@@ -75,9 +83,9 @@ struct SplitHandle: View {
     @Binding var ratio: Double
 
     var body: some View {
-        Rectangle().fill(UI.border).frame(width: 1)
+        Rectangle().fill(SwiftUI.Color.clear).frame(width: 6)
             .overlay(
-                Rectangle().fill(SwiftUI.Color.white.opacity(0.001)).frame(width: 9)
+                Rectangle().fill(SwiftUI.Color.white.opacity(0.001)).frame(width: 10)
                     .onHover { inside in
                         MainActor.assumeIsolated { if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() } }
                     }
@@ -133,8 +141,17 @@ struct Toolbar: View {
             Rectangle().fill(UI.border).frame(width: 1, height: 16).padding(.horizontal, 4)
             SettingsButton()
         }
-        .padding(.horizontal, 8).frame(height: 30)
-        .background(UI.chrome)
+        .padding(.horizontal, 8).frame(height: 34)
+    }
+}
+
+extension View {
+    /// Panel jako zaoblená karta (jemně modernější vzhled), aktivní s tenkým rámečkem v barvě profilu.
+    func modernCard(active: Bool) -> some View {
+        self.clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(active ? UI.accent.opacity(0.55) : UI.border, lineWidth: active ? 1.5 : 1))
+            .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
     }
 }
 
@@ -258,7 +275,9 @@ struct PanelContent: View {
                 }
             }
             .padding(.horizontal, 8).frame(height: 26)
-            .background(isActive ? UI.accent : UI.card)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(isActive ? UI.accent : UI.card))
+            .padding(.horizontal, 5).padding(.vertical, 4)
+            .background(UI.list)
             if let e = tab.error {
                 Text(e).font(.system(size: 11)).foregroundStyle(UI.error)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.vertical, 4)
@@ -345,7 +364,6 @@ struct OpsBar: View {
             ForEach(commander.ops) { OpRow(op: $0) }
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
-        .background(UI.sidebar)
     }
 }
 
@@ -383,8 +401,7 @@ struct CommandLineBar: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 11.5, design: .monospaced))
         }
-        .padding(.horizontal, 10).frame(height: 24)
-        .background(UI.list)
+        .padding(.horizontal, 10).frame(height: 26)
     }
 }
 
@@ -398,7 +415,9 @@ struct FunctionKeyBar: View {
                 Text(title).font(.system(size: 11)).foregroundStyle(UI.text)
                 Text(mac).font(.system(size: 9.5)).foregroundStyle(UI.textTertiary)
             }
-            .frame(maxWidth: .infinity, minHeight: 22)
+            .frame(maxWidth: .infinity, minHeight: 24)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Modern.glass))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(Modern.glassStroke, lineWidth: 1))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -426,11 +445,10 @@ struct FunctionKeyBar: View {
             sep
             key("Alt+F7", "⌘F", "Hledat") { commander.search() }
         }
-        .frame(height: 24)
-        .background(UI.chrome)
+        .frame(height: 26)
     }
 
-    private var sep: some View { Rectangle().fill(UI.border).frame(width: 1, height: 14) }
+    private var sep: some View { Spacer().frame(width: 4) }
 }
 
 struct OutputSheet: View {

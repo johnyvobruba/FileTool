@@ -3,6 +3,17 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.11.0
+
+- **Úklid v novém vzhledu** (inspirace CleanMyMac): každý modul má vlastní barevný přechod, lišta modulů s barevnými ikonami, skleněné karty s doporučeními a tlačítky Zkontrolovat / Vyčistit, průhledné seznamy. Chytrá kontrola jako přehled („Na tvém Macu je X GB odpadu“ + karty odpad, velké soubory, zbytky aplikací, služby, Koš).
+- **Mapa disku jako bubliny:** velikost bubliny = místo na disku, klik na složku = dovnitř, klik na soubor = výběr; vlevo seznam se zaškrtávátky, dole součet a „Zkontrolovat a odebrat“ (do Koše).
+- **Nový modul Výkon** (Úklid → Výkon):
+  - **služby při startu** – LaunchAgents (uživatel, všichni) i LaunchDaemons (systém) s **popisem, co dělají** (známé služby Google, Microsoft, Adobe, Cisco, Citrix, Zoom, Homebrew…), aplikací, vydavatelem a ověřením podpisu, kdy se spouští (při přihlášení / stále / v intervalu) a zda právě běží;
+  - **zapnutí / vypnutí** přepínačem (launchctl – vratné, nic se nemaže); systémové služby s heslem správce v dialogu macOS; služby po odinstalovaných aplikacích lze odstranit (do Koše);
+  - **doporučení** na kartách: služby po odinstalovaných aplikacích, bez platného podpisu, běžící stále na pozadí; **položky při přihlášení** (načtení přes System Events, odkaz do Nastavení);
+  - **údržba** s vysvětlením: vyprázdnit DNS cache, obnovit Launch Services („Otevřít v…“), vyčistit mezipaměť Quick Look, přeindexovat Spotlight, ověřit spouštěcí disk – výstup v přehledu.
+- **Modernější vzhled hlavního okna** (ve stylu Úklidu, barvy dál podle barevného profilu): přechod z barev profilu přes celé okno včetně titulkové lišty, panely, boční panel, příkazový řádek a lišta operací jako zaoblené skleněné karty (aktivní panel s rámečkem v barvě profilu), funkční klávesy jako kapsle, cesta jako zaoblený pruh. Seznamy souborů zůstávají na plném pozadí kvůli čitelnosti.
+
 ## 0.10.0
 
 Inspirace z Double / Total Commanderu (zkratky po macOS – ⌘ ⌥ ⌃ ⇧):
