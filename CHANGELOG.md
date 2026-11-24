@@ -3,6 +3,10 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.8.5
+
+- **Úklid – řazení výsledků:** u Velkých a Starých souborů jde řadit klikem na hlavičku sloupce (název, umístění, velikost, naposledy otevřeno, změněno) a přes předvolbu „Řadit“ – včetně **„Velké a zároveň staré“** (velikost × doba bez otevření), které je výchozí u Starých souborů.
+
 ## 0.8.4
 
 - **Úklid → Staré soubory** (nový modul): soubory, které jsi dlouho neotevřel, už od 1 MB (výchozí 10 MB, neotevřené 1+ rok; 6 měsíců – 2 roky). Modul „Velké soubory“ zůstává pro to, co zabírá nejvíc místa.

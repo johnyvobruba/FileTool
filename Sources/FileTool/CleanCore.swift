@@ -257,6 +257,35 @@ struct BigFile: Identifiable, Hashable {
     var id: URL { url }
     var kind: FileKind { FileKind.of(url) }
     var reference: Date { max(lastUsed ?? .distantPast, modified ?? .distantPast) }
+
+    // klíče pro řazení tabulky
+    var name: String { url.lastPathComponent }
+    var folder: String { url.deletingLastPathComponent().path }
+    var lastUsedKey: Date { lastUsed ?? .distantPast }
+    var modifiedKey: Date { modified ?? .distantPast }
+    /// „Kolik místa a jak dlouho ladem“: velikost (MB) × stáří (dny) – nahoře velké a zároveň staré soubory.
+    var score: Double { Double(size) / 1_048_576 * max(1, Date().timeIntervalSince(reference) / 86_400) }
+}
+
+enum BigSort: String, CaseIterable, Identifiable {
+    case sizeAge, size, oldest, name
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .sizeAge: return "Velké a zároveň staré"
+        case .size: return "Největší"
+        case .oldest: return "Nejstarší"
+        case .name: return "Název"
+        }
+    }
+    var comparators: [KeyPathComparator<BigFile>] {
+        switch self {
+        case .sizeAge: return [KeyPathComparator(\.score, order: .reverse)]
+        case .size: return [KeyPathComparator(\.size, order: .reverse)]
+        case .oldest: return [KeyPathComparator(\.modifiedKey), KeyPathComparator(\.size, order: .reverse)]
+        case .name: return [KeyPathComparator(\.name)]
+        }
+    }
 }
 
 enum FileKind: String, CaseIterable, Identifiable {
@@ -293,7 +322,7 @@ final class LargeOldModel: ObservableObject {
     let oldMode: Bool
     init(oldMode: Bool = false) {
         self.oldMode = oldMode
-        if oldMode { minSizeMB = 10; age = .y1 }
+        if oldMode { minSizeMB = 10; age = .y1; sortOrder = BigSort.sizeAge.comparators }
     }
     @Published var root = FileManager.default.homeDirectoryForCurrentUser.path
     @Published var minSizeMB = 100
@@ -305,9 +334,12 @@ final class LargeOldModel: ObservableObject {
     @Published var running = false
     @Published var scanned = false
     @Published var status = ""
+    /// Řazení tabulky (klik na hlavičku sloupce nebo předvolba).
+    @Published var sortOrder: [KeyPathComparator<BigFile>] = [KeyPathComparator(\.size, order: .reverse)]
     private var cancel = Box(false)
 
-    var shown: [BigFile] {
+    var shown: [BigFile] { filtered.sorted(using: sortOrder) }
+    private var filtered: [BigFile] {
         let cutoff = age == .anyAge ? nil : Calendar.current.date(byAdding: .month, value: -age.rawValue, to: Date())
         return files.filter { (kind == .all || $0.kind == kind) && (cutoff == nil || $0.reference < cutoff!) }
     }

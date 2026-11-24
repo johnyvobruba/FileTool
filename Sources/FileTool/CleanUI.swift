@@ -386,23 +386,29 @@ struct LargeOldView: View {
                 SKMenuPicker(selection: $m.kind, options: FileKind.allCases.map { ($0, $0.title) }, width: 150)
                 Text("Stáří").font(SK.helpFont).foregroundStyle(UI.textSecondary)
                 SKMenuPicker(selection: $m.age, options: AgeFilter.allCases.filter { !m.oldMode || $0 != .anyAge }.map { ($0, $0.title) }, width: 210)
+                Text("Řadit").font(SK.helpFont).foregroundStyle(UI.textSecondary)
+                Menu {
+                    ForEach(BigSort.allCases) { s in Button(s.title) { m.sortOrder = s.comparators } }
+                } label: { Image(systemName: "arrow.up.arrow.down") }
+                .menuStyle(.borderlessButton).fixedSize()
+                .tip("Předvolby řazení. „Velké a zároveň staré“ = velikost × doba bez otevření. Řadit jde i klikem na hlavičku sloupce.")
                 Spacer()
                 Text("\(m.shown.count) · \(Fmt.bytes(m.shownSize))").font(SK.helpFont).foregroundStyle(UI.textSecondary)
             }
-            Table(m.shown, selection: $m.selection) {
-                TableColumn("Název") { f in
+            Table(m.shown, selection: $m.selection, sortOrder: $m.sortOrder) {
+                TableColumn("Název", value: \.name) { f in
                     HStack(spacing: 6) {
                         Image(nsImage: NSWorkspace.shared.icon(forFile: f.url.path)).resizable().frame(width: 16, height: 16)
                         Text(f.url.lastPathComponent).lineLimit(1)
                     }
                 }
-                TableColumn("Umístění") { f in
-                    Text(f.url.deletingLastPathComponent().path.replacingOccurrences(of: CleanFS.home, with: "~"))
+                TableColumn("Umístění", value: \.folder) { f in
+                    Text(f.folder.replacingOccurrences(of: CleanFS.home, with: "~"))
                         .lineLimit(1).truncationMode(.middle).foregroundStyle(UI.textSecondary)
                 }
-                TableColumn("Velikost") { f in Text(Fmt.bytes(f.size)).monospacedDigit() }.width(85)
-                TableColumn("Naposledy otevřeno") { f in Text(dateText(f.lastUsed)).monospacedDigit() }.width(125)
-                TableColumn("Změněno") { f in Text(dateText(f.modified)).monospacedDigit() }.width(115)
+                TableColumn("Velikost", value: \.size) { f in Text(Fmt.bytes(f.size)).monospacedDigit() }.width(85)
+                TableColumn("Naposledy otevřeno", value: \.lastUsedKey) { f in Text(dateText(f.lastUsed)).monospacedDigit() }.width(125)
+                TableColumn("Změněno", value: \.modifiedKey) { f in Text(dateText(f.modified)).monospacedDigit() }.width(115)
             }
             .contextMenu(forSelectionType: URL.self) { _ in
                 Button("Zobrazit ve Finderu") { NSWorkspace.shared.activateFileViewerSelecting(Array(m.selection)) }
