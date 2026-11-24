@@ -3,10 +3,19 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.10.0
+
+Inspirace z Double / Total Commanderu (zkratky po macOS – ⌘ ⌥ ⌃ ⇧):
+- **Hromadné přejmenování** (⇧⌘M): maska názvu a přípony se zástupnými znaky – `[N]` název, `[N1-5]` část názvu, `[E]` přípona, `[C]` čítač (začátek, krok, počet číslic), `[P]` složka, `[YMD]` `[hms]` `[Y]` `[M]` `[D]` datum změny –, hledat a nahradit (i regulární výraz se skupinami `$1`), velikost písmen. Živý náhled se zvýrazněním konfliktů (duplicity, existující soubor, neplatné znaky), bezpečné provedení i při prohození názvů a tlačítko **Zpět**. Bez označení se přejmenuje celá složka.
+- **Synchronizace složek** (⇧⌘S): porovná levý a pravý panel (i SMB / NAS) podle data a velikosti, volitelně podle obsahu (SHA-256), s podsložkami a maskou. Směr oba / vlevo → vpravo / vpravo → vlevo, akci u každé položky změníš klikem (→ ← —). Volitelné **zrcadlení** (položky navíc v cíli do Koše). Průběh v liště operací.
+- **Porovnání souborů – diff** (⇧⌘D): dva označené soubory, nebo soubor pod kurzorem vlevo × vpravo. Vedle sebe s čísly řádků, barevně přidané / odebrané / změněné, skok na další rozdíl ⌥↓ / ⌥↑, „jen rozdíly“, ignorovat mezery / velikost písmen. Na přání otevře FileMerge, VS Code nebo BBEdit.
+- **Velikost složek:** mezerník na složce ji označí a spočítá její velikost (zobrazí se místo `<DIR>` a započítá do součtu výběru); hromadně z menu Operace nebo pravým tlačítkem.
+
 ## 0.9.2
 
 - **Klikací cesta** nad panelem (jako ve Finderu): klik na libovolnou část cesty = přejít do ní, **dvojklik = zkopírovat celou cestu** (potvrdí „Zkopírováno“), tlačítka ↑ (nadřazená), ✎ ruční úprava cesty (⌘L, Esc zruší) a kopírování. Funguje i v archivu (včetně vnitřních složek), na serveru a ve výsledcích hledání.
 - **Šířka bočního panelu** jde měnit táhnutím za jeho pravý okraj (150–420 bodů, pamatuje se), dvojklik vrátí výchozí šířku.
+- **Kontrolní součty** (⌥⌘H, menu Operace, pravé tlačítko): MD5, SHA-1, SHA-256 a SHA-512 pro označené soubory i celé složky, s průběhem i u velkých souborů. Porovnání s vloženým otiskem (např. ze stránky výrobce), kopírování a uložení ve formátu md5sum / shasum. Vybraný soubor `.md5` / `.sha1` / `.sha256` / `.sha512` = **ověření** souborů podle něj (✓ / ✗ / chybí).
 
 ## 0.9.1
 

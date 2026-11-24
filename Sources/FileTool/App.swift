@@ -48,6 +48,16 @@ struct FileToolApp: App {
                 Button("Zobrazit ve Finderu") { commander.revealInFinder() }.keyboardShortcut("r", modifiers: [.command, .option])
                 Button("Kopírovat cestu") { commander.copyPaths() }.keyboardShortcut("c", modifiers: [.command, .option])
                 Button("Hledat… (Alt+F7)") { commander.search() }.keyboardShortcut("f")
+                Button("Kontrolní součty (MD5, SHA)…") { commander.checksums() }.keyboardShortcut("h", modifiers: [.command, .option])
+                Divider()
+                Button("Hromadné přejmenování…") { commander.multiRename() }.keyboardShortcut("m", modifiers: [.command, .shift])
+                Button("Synchronizovat složky…") { commander.syncDirs() }.keyboardShortcut("s", modifiers: [.command, .shift])
+                Button("Porovnat soubory (diff)…") { commander.diffFiles() }.keyboardShortcut("d", modifiers: [.command, .shift])
+                Button("Spočítat velikost složek") {
+                    let t = commander.tab
+                    let sel = t.items.filter { t.marked.contains($0.url) && $0.isDir }
+                    t.computeSizes(sel.isEmpty ? t.items.filter { $0.isDir && !$0.isParent } : sel)
+                }
                 Button("Úklid…") { CleanupWindow.show() }.keyboardShortcut("u", modifiers: [.command, .shift])
                 Button("Otevřít Terminál zde") { commander.openTerminalHere() }
                 Divider()

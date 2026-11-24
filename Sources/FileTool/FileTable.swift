@@ -186,7 +186,9 @@ struct FileTable: NSViewRepresentable {
                 let n = item.isParent ? "[..]" : item.isDir ? "[\(item.name)]" : item.baseName
                 cell.set(n, color: color, font: font, icon: item.isParent ? nil : icon(item))
             case "ext": cell.set(item.ext, color: color, font: font)
-            case "size": cell.set(Fmt.column(item), color: color, font: mono, align: .right)
+            case "size":
+                let s = item.isDir ? tab.dirSizes[item.url].map { Fmt.bytes($0) } : nil
+                cell.set(s ?? Fmt.column(item), color: color, font: mono, align: .right)
             case "date": cell.set(item.isParent ? "" : Fmt.date.string(from: item.modified), color: marked ? color : UI.NS.textDim, font: mono)
             default: cell.set(item.perms, color: marked ? color : UI.NS.textDim, font: mono)
             }
@@ -242,6 +244,7 @@ struct FileTable: NSViewRepresentable {
                 if let i = tab.current { tab.open(i) }; return true
             case (51, []), (126, [.command]): tab.up(); return true                              // ⌫, ⌘↑
             case (49, []):                                                                       // mezerník = označit
+                if let i = tab.current, i.isDir { tab.computeSize(i) }                          // jako v TC: složka + velikost
                 tab.toggleMark(tab.cursor); move(1); return true
             case (99, []): commander.view(); return true                                         // F3
             case (118, []): commander.edit(); return true                                        // F4
@@ -324,6 +327,12 @@ struct FileTable: NSViewRepresentable {
             m.addItem(.separator())
             add("Zabalit do druhého panelu…", #selector(mPack))
             add("Rozbalit do druhého panelu…", #selector(mUnpack))
+            add("Kontrolní součty (MD5, SHA)…", #selector(mHash))
+            m.addItem(.separator())
+            add("Hromadné přejmenování…", #selector(mMulti))
+            add("Porovnat soubory (diff)…", #selector(mDiff))
+            add("Synchronizovat složky…", #selector(mSync))
+            add("Spočítat velikost složky", #selector(mSize))
             m.addItem(.separator())
             add("Zobrazit ve Finderu", #selector(mReveal))
             add("Kopírovat cestu", #selector(mCopyPath))
@@ -340,6 +349,15 @@ struct FileTable: NSViewRepresentable {
         @objc func mView() { focusClicked(); commander.view() }
         @objc func mOpenExt() { focusClicked(); commander.openExternally() }
         @objc func mPack() { focusClicked(); commander.pack() }
+        @objc func mHash() { focusClicked(); commander.checksums() }
+        @objc func mMulti() { focusClicked(); commander.multiRename() }
+        @objc func mDiff() { focusClicked(); commander.diffFiles() }
+        @objc func mSync() { focusClicked(); commander.syncDirs() }
+        @objc func mSize() {
+            focusClicked()
+            let sel = tab.items.filter { tab.marked.contains($0.url) && $0.isDir }
+            if sel.isEmpty, let c = tab.current { tab.computeSize(c) } else { tab.computeSizes(sel) }
+        }
         @objc func mUnpack() { focusClicked(); commander.unpack() }
         @objc func mEdit() { focusClicked(); commander.edit() }
         @objc func mCopy() { focusClicked(); commander.transfer(move: false) }

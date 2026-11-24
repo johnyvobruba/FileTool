@@ -48,6 +48,9 @@ final class PanelTab: ObservableObject, Identifiable {
     @Published var thumbOverride: Bool?
     @Published private(set) var autoThumbs = false
     var showThumbs: Bool { thumbOverride ?? autoThumbs }
+    /// Spočítané velikosti složek (mezerník na složce / menu) – místo <DIR>.
+    @Published var dirSizes: [URL: Int64] = [:]
+    private var sizing = Set<URL>()
     /// Počet sloupců mřížky náhledů (pro šipky nahoru/dolů).
     var gridColumns = 1
 
@@ -100,6 +103,7 @@ final class PanelTab: ObservableObject, Identifiable {
         archive = nil
         results = nil
         thumbOverride = nil
+        dirSizes = [:]
         dir = target
         pathField = target.path
         marked = []
@@ -485,10 +489,30 @@ final class PanelTab: ObservableObject, Identifiable {
     }
 
     /// Souhrn pro stavový řádek.
+    /// Spočítá velikost složky na pozadí (jen místní složky; ne archiv / server).
+    func computeSize(_ item: FileItem) {
+        guard item.isDir, !item.isParent, item.archiveInner == nil, item.remotePath == nil,
+              dirSizes[item.url] == nil, !sizing.contains(item.url) else { return }
+        let u = item.url
+        sizing.insert(u)
+        Task.detached(priority: .utility) {
+            let s = CleanFS.size(u)
+            await MainActor.run {
+                self.sizing.remove(u)
+                guard self.items.contains(where: { $0.url == u }) else { return }
+                self.dirSizes[u] = s
+                self.version &+= 1
+            }
+        }
+    }
+
+    func computeSizes(_ list: [FileItem]) { list.filter(\.isDir).forEach(computeSize) }
+
     var summary: String {
         let files = items.filter { !$0.isDir && !$0.isParent }, dirs = items.filter { $0.isDir && !$0.isParent }
         let mFiles = files.filter { marked.contains($0.url) }, mDirs = dirs.filter { marked.contains($0.url) }
-        let mBytes = mFiles.reduce(Int64(0)) { $0 + $1.size }, tBytes = files.reduce(Int64(0)) { $0 + $1.size }
+        let mBytes = mFiles.reduce(Int64(0)) { $0 + $1.size } + mDirs.reduce(Int64(0)) { $0 + (dirSizes[$1.url] ?? 0) }
+        let tBytes = files.reduce(Int64(0)) { $0 + $1.size }
         return "Výběr: \(Fmt.bytes(mBytes)) / \(Fmt.bytes(tBytes))   Soubory: \(mFiles.count) / \(files.count)   Složky: \(mDirs.count) / \(dirs.count)"
     }
 }

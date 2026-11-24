@@ -593,7 +593,7 @@ struct SettingsShortcutsPane: View {
                     ("⌘↑ / ⌫", "Nadřazená složka"), ("⇧⌘.", "Skryté soubory"), ("⇧⌘R", "Obnovit")]),
         ("Výběr", [("Mezerník", "Označit položku"), ("⌘A / ⌘D", "Označit vše / nic"), ("+ / −", "Označit / odznačit maskou"), ("*", "Obrátit výběr")]),
         ("Servery", [("⌘K", "Připojit k serveru"), ("⇧⌘K", "Odpojit")]),
-        ("Nástroje", [("⌘F / Alt+F7", "Hledat soubory"), ("⇧⌘U", "Úklid (odpad, velké soubory, odinstalace, mapa disku, duplicity)"), ("⌃⌘S", "Boční panel")]),
+        ("Nástroje", [("⌘F / Alt+F7", "Hledat soubory"), ("⇧⌘M", "Hromadné přejmenování"), ("⇧⌘S", "Synchronizace složek (levý ↔ pravý panel)"), ("⇧⌘D", "Porovnat dva soubory (diff)"), ("Mezerník na složce", "Označit + spočítat velikost"), ("⌥⌘H", "Kontrolní součty MD5 / SHA (vybraný .md5/.sha256 = ověření)"), ("⇧⌘U", "Úklid (odpad, velké soubory, odinstalace, mapa disku, duplicity)"), ("⌃⌘S", "Boční panel")]),
         ("Okno", [("⌥⌘↓", "Otevřít výchozí aplikací"), ("⌥⌘R", "Zobrazit ve Finderu"), ("⌥⌘C", "Kopírovat cestu"), ("⌘,", "Nastavení")]),
     ]
 
