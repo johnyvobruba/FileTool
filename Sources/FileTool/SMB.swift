@@ -7,43 +7,49 @@ import NetFS
 // (nabídne uložení do Klíčenky); FileTool heslo nevidí ani neukládá. Odpojení: ⏏ v bočním panelu.
 
 enum SMBMount {
-    /// smb://user@host[:port]/share – podsložky za sdílením se otevřou až po připojení.
+    /// Části cesty (sdílení + podsložky), bez prázdných.
+    static func parts(_ p: String) -> [String] {
+        p.split(separator: "/").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+
+    /// smb://user@host[:port]/share/podsložka – celá cesta jako ve Finderu (⌘K): macOS umí připojit
+    /// i podsložku sdílení (např. smb://bont1/Users/jvobruba → /Volumes/jvobruba).
     static func url(_ c: RemoteConfig) -> URL? {
-        let share = c.path.split(separator: "/").first.map(String.init) ?? ""
         var comps = URLComponents()
         comps.scheme = "smb"
         comps.host = c.host
         if c.port != 445 { comps.port = c.port }
         if !c.user.isEmpty { comps.user = c.user }
-        comps.path = "/" + share                     // bez sdílení macOS nabídne seznam sdílení serveru
+        comps.path = "/" + parts(c.path).joined(separator: "/")   // prázdné = macOS nabídne seznam sdílení
         return comps.url
     }
 
-    static func subpath(_ c: RemoteConfig) -> String {
-        c.path.split(separator: "/").dropFirst().joined(separator: "/")
-    }
-
-    /// Už připojené sdílení (stejný server a share).
+    /// Už připojený svazek pro tento server a cestu → složka k otevření.
+    /// Připojený může být celý share (/Volumes/Users → doplní se podsložka) i přímo podsložka (/Volumes/jvobruba).
     static func mounted(_ c: RemoteConfig) -> URL? {
-        let share = (c.path.split(separator: "/").first.map(String.init) ?? "").lowercased()
+        let want = parts(c.path).map { $0.lowercased() }
         let vols = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeURLForRemountingKey], options: []) ?? []
+        var best: (rank: Int, url: URL)?
         for v in vols {
             guard let r = (try? v.resourceValues(forKeys: [.volumeURLForRemountingKey]))?.volumeURLForRemounting,
                   r.scheme?.lowercased() == "smb", r.host?.lowercased() == c.host.lowercased() else { continue }
-            let rs = r.path.split(separator: "/").first.map { String($0).removingPercentEncoding ?? String($0) }?.lowercased() ?? ""
-            if rs == share || share.isEmpty { return v }
+            let have = parts(r.path.removingPercentEncoding ?? r.path).map { $0.lowercased() }
+            if want.isEmpty {                                       // bez cesty – kterýkoli svazek serveru
+                if best == nil { best = (0, v) }
+                continue
+            }
+            guard !have.isEmpty, have.count <= want.count, Array(want.prefix(have.count)) == have else { continue }
+            let rest = parts(c.path).dropFirst(have.count)
+            let target = rest.reduce(v) { $0.appendingPathComponent($1, isDirectory: true) }
+            if best == nil || have.count > best!.rank { best = (have.count, target) }
         }
-        return nil
+        return best?.url
     }
 
     /// Připojí (nebo najde připojené) a vrátí složku k otevření v panelu.
     static func mount(_ c: RemoteConfig, interactive: Bool = true, completion: @escaping @MainActor (Result<URL, Error>) -> Void) {
-        func finish(_ base: URL) -> URL {
-            let sub = subpath(c)
-            return sub.isEmpty ? base : base.appendingPathComponent(sub, isDirectory: true)
-        }
-        let noShare = c.path.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).isEmpty
-        if !noShare, let m = mounted(c) { Task { @MainActor in completion(.success(finish(m))) }; return }
+        let noShare = parts(c.path).isEmpty
+        if !noShare, let m = mounted(c) { Task { @MainActor in completion(.success(m)) }; return }
         let before = Set(FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: []) ?? [])
         guard let u = url(c) else {
             Task { @MainActor in completion(.failure(RemoteError.failed("Neplatná adresa serveru."))) }
@@ -59,9 +65,9 @@ enum SMBMount {
             if rc == 0, noShare, let m = fresh.first ?? mounted(c) {
                 result = .success(m)                    // sdílení vybrané v dialogu macOS
             } else if rc == 0, let m = mounted(c) {
-                result = .success(finish(m))
-            } else if rc == 0 {
-                result = .success(finish(URL(fileURLWithPath: "/Volumes/" + (c.path.split(separator: "/").first.map(String.init) ?? ""), isDirectory: true)))
+                result = .success(m)
+            } else if rc == 0, let m = fresh.first {
+                result = .success(m)                    // nový svazek, i když se adresa nepodařila spárovat
             } else if rc == -128 || rc == Int32(ECANCELED) {
                 result = .failure(RemoteError.cancelled)
             } else {

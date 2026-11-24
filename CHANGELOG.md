@@ -3,6 +3,10 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.9.1
+
+- **Oprava SMB s cestou ke složce** (např. `smb://bont1/Users/jvobruba`): připojí se stejně jako ve Finderu (⌘K) – i přímo podsložka sdílení – a panel otevře správnou složku (dřív hledal neexistující `/Volumes/jvobruba/jvobruba`). Už připojené sdílení se pozná i tehdy, když je připojený celý share a ty chceš jeho podsložku.
+
 ## 0.9.0
 
 - **Náhledy (velké ikony):** panel umí místo seznamu zobrazit mřížku náhledů obrázků (Quick Look – i HEIC, RAW, PDF, videa). Složka **jen s obrázky** se tak zobrazí automaticky (vypnutelné v Nastavení → Obecné). Přepnutí ⌥⌘T nebo ikonou v liště, velikost náhledů posuvníkem nad mřížkou (64–320 bodů).

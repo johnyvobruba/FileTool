@@ -176,7 +176,7 @@ struct ConnectView: View {
                         }
                     }
                     if model.draft.proto == "smb" {
-                        TextField("Sdílení", text: $model.draft.path, prompt: Text("nepovinné – prázdné = výběr ze seznamu"))
+                        TextField("Sdílení / cesta", text: $model.draft.path, prompt: Text("např. Data nebo Users/jvobruba – prázdné = výběr"))
                         Toggle("Připojit při spuštění FileTool", isOn: Binding(get: { model.draft.autoMount == true },
                                                                              set: { model.draft.autoMount = $0 ? true : nil }))
                             .tip("Tiše se připojí s heslem uloženým v Klíčence macOS – při prvním připojení zaškrtni v dialogu „Uložit heslo do Klíčenky“. Nedostupné sdílení se přeskočí.")
