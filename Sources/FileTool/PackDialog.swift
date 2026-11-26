@@ -213,7 +213,8 @@ final class PackDialog: NSObject {
     static func parseSize(_ s: String) -> String? {
         let t = s.trimmingCharacters(in: .whitespaces).lowercased().replacingOccurrences(of: ",", with: ".")
             .replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "b", with: "")
-        guard let u = t.last, let mult: Double = ["k": 1, "m": 1024, "g": 1024 * 1024][u],
+        let units: [Character: Double] = ["k": 1, "m": 1024, "g": 1_048_576]   // explicitně Double (starší kompilátor)
+        guard let u = t.last, let mult = units[u],
               let v = Double(t.dropLast()), v > 0 else { return nil }
         let kib = Int((v * mult).rounded())
         return kib >= 64 ? "\(kib)k" : nil
