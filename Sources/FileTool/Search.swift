@@ -87,7 +87,7 @@ final class SearchModel: ObservableObject {
             }
             await flush(true)
             let stopped = c.value
-            await MainActor.run { guard self.cancel === c else { return };
+            await MainActor.run { [scanned] in guard self.cancel === c else { return };
                 self.running = false
                 self.status = (stopped ? "Zastaveno · " : "") + "Nalezeno \(self.hits.count) · prohledáno \(scanned) položek"
             }

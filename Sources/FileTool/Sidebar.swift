@@ -95,7 +95,7 @@ final class SidebarModel: ObservableObject {
         Task.detached {
             var msg: String?
             do { try NSWorkspace.shared.unmountAndEjectDevice(at: url) } catch let err { msg = err.localizedDescription }
-            await MainActor.run {
+            await MainActor.run { [msg] in
                 SidebarModel.shared.ejecting = nil
                 SidebarModel.shared.reloadVolumes()
                 if let msg {

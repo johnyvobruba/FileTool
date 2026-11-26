@@ -88,10 +88,10 @@ enum ArchivePasswords {
         let a = NSAlert()
         a.messageText = wrong ? "Nesprávné heslo k „\(file.lastPathComponent)“" : "Archiv „\(file.lastPathComponent)“ je zašifrovaný"
         a.informativeText = "Zadej heslo. Pamatuje se jen do ukončení FileTool, nikam se neukládá."
-        let f = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        let f = RevealPasswordField(width: 300)
         a.accessoryView = f
         a.addButton(withTitle: "Otevřít"); a.addButton(withTitle: "Zrušit")
-        a.window.initialFirstResponder = f
+        a.window.initialFirstResponder = f.secure
         guard a.runModal() == .alertFirstButtonReturn, !f.stringValue.isEmpty else { return nil }
         cache[file.path] = f.stringValue
         return f.stringValue
@@ -294,6 +294,69 @@ enum ArchiveIO {
             try? FileManager.default.removeItem(at: out)
             throw ArchiveError.tool("Šifrované balení selhalo (kód \(r.0)): \(r.1.suffix(300))")
         }
+    }
+
+    /// Balení s volbami (dialog ⌥⌘5): úroveň komprese, heslo (AES-256 / ZipCrypto), šifrované názvy (7z),
+    /// rozdělení na části. ZIP a 7z přes 7-Zip, je-li nainstalovaný; jinak ZIP přes macOS zip. tar přes /usr/bin/tar,
+    /// části u taru přes /usr/bin/split. Heslo jde přes pseudoterminál (není v argumentech ani v prostředí).
+    static func pack(_ out: URL, from dir: URL, names: [String], o: PackOptions, cancel: Box<Bool>) throws {
+        let items = names.map { "./" + $0 }
+        let lv = max(0, min(9, o.level))
+        let pw = !o.password.isEmpty
+        var r: (Int32, String) = (0, "")
+        switch o.format {
+        case "zip", "7z":
+            if let sz = SevenZip.path {
+                var args = ["a", o.format == "7z" ? "-t7z" : "-tzip", "-mx=\(lv)", "-y", "-bso0", "-bsp0"]
+                if pw {
+                    args.append("-p")
+                    if o.format == "7z" { if o.encryptNames { args.append("-mhe=on") } }
+                    else { args.append(o.zipCrypto ? "-mem=ZipCrypto" : "-mem=AES256") }
+                }
+                if let v = o.volume { args.append("-v" + v) }
+                args += [out.path] + items
+                r = pw ? PtyRunner.run(sz, args, cwd: dir, password: o.password, cancel: cancel)
+                       : run(sz, args, cwd: dir, cancel: cancel)
+            } else {
+                guard o.format == "zip" else { throw ArchiveError.tool("Formát 7z potřebuje 7-Zip (brew install sevenzip).") }
+                var args = ["-r", "-y", "-\(lv)"]
+                if let v = o.volume { args += ["-s", v] }
+                if pw { args.append("-e") } else { args.append("-q") }
+                args += [out.path] + items
+                r = pw ? PtyRunner.run("/usr/bin/zip", args, cwd: dir, password: o.password, cancel: cancel)
+                       : run("/usr/bin/zip", args, cwd: dir, cancel: cancel)
+            }
+        default:
+            let (flag, opt): (String, String) = o.format == "tar.xz" ? ("-J", "xz") : o.format == "tar.bz2" ? ("-j", "bzip2") : ("-z", "gzip")
+            let tl = opt == "bzip2" ? max(1, lv) : lv
+            r = run("/usr/bin/tar", ["-c", flag, "--options", "\(opt):compression-level=\(tl)", "-f", out.path] + items, cwd: dir, cancel: cancel)
+            if r.0 == 0, !cancel.value, let v = o.volume {
+                let s = run("/usr/bin/split", ["-b", v, out.lastPathComponent, out.lastPathComponent + "."], cwd: out.deletingLastPathComponent(), cancel: cancel)
+                if s.0 == 0 { try? FileManager.default.removeItem(at: out) } else { r = s }
+            }
+        }
+        let made = FileManager.default.fileExists(atPath: out.path) || FileManager.default.fileExists(atPath: out.path + ".001")
+            || FileManager.default.fileExists(atPath: out.path + ".aa")
+        if cancel.value { for u in parts(of: out) { try? FileManager.default.removeItem(at: u) }; throw ArchiveError.cancelled }
+        guard r.0 == 0, made else {
+            for u in parts(of: out) { try? FileManager.default.removeItem(at: u) }
+            throw ArchiveError.tool("Balení selhalo (kód \(r.0)): \(r.1.suffix(300))")
+        }
+    }
+
+    /// Archiv a všechny jeho části: název.zip, název.zip.001…, název.z01…, název.tar.gz.aa…
+    static func parts(of out: URL) -> [URL] {
+        let dir = out.deletingLastPathComponent(), n = out.lastPathComponent
+        let base = (n as NSString).deletingPathExtension
+        let list = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+        return list.filter { f in
+            if f == n { return true }
+            if f.hasPrefix(n + "."), let s = f.split(separator: ".").last {
+                return (s.count == 3 && s.allSatisfy(\.isNumber)) || (s.count == 2 && s.allSatisfy(\.isLowercase))
+            }
+            if f.hasPrefix(base + ".z"), f.count == base.count + 4, f.suffix(2).allSatisfy(\.isNumber) { return true }
+            return false
+        }.map { dir.appendingPathComponent($0) }
     }
 
     /// Přidá soubory do ZIP na vnitřní cestu `inner` (přes dočasnou složku se stejnou strukturou), pak ověří ZIP.

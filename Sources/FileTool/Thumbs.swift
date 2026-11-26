@@ -78,6 +78,7 @@ struct ThumbCell: View {
                 .font(.system(size: 11, weight: marked ? .semibold : .regular))
                 .foregroundStyle(marked ? Color(nsColor: UI.NS.marked) : item.isDir || item.isParent ? Color(nsColor: UI.NS.dir) : UI.listText)
                 .lineLimit(2).multilineTextAlignment(.center).truncationMode(.middle)
+                .help(item.isParent ? "" : item.name)
                 .frame(width: size, height: 28, alignment: .top)
         }
         .padding(6)

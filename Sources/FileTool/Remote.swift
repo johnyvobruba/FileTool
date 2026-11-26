@@ -265,10 +265,10 @@ final class RemoteSession {
         let a = NSAlert()
         a.messageText = title
         a.informativeText = config.savePassword ? "Heslo se uloží do Klíčenky macOS." : "Heslo se nikam neukládá."
-        let f = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        let f = RevealPasswordField(width: 280)
         a.accessoryView = f
         a.addButton(withTitle: "Připojit"); a.addButton(withTitle: "Zrušit")
-        a.window.initialFirstResponder = f
+        a.window.initialFirstResponder = f.secure
         guard a.runModal() == .alertFirstButtonReturn, !f.stringValue.isEmpty else { return nil }
         return f.stringValue
     }

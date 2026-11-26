@@ -3,6 +3,20 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 0.14.0
+
+- **Zobrazení hesla při psaní** – u polí pro heslo je ikona oka: kliknutím se heslo ukáže jako text a zpět. Výchozí stav je vždy skrytý; v dialogu se dvěma poli (heslo + kontrola) přepíná oko obě najednou. Platí pro heslo k archivu, k serveru (SFTP/SCP/FTP), dotaz SSH (askpass) i balení.
+- **Nový dialog balení (⌥⌘5)** s volbami:
+  - **cílová složka** – lze přepsat nebo vybrat (výchozí druhý panel, je-li místní),
+  - formát ZIP, 7z, tar.gz, **tar.bz2**, tar.xz,
+  - **úroveň komprese** (bez komprese / nejrychlejší / rychlá / normální / maximální / ultra),
+  - **rozdělení na části** (10 MB, 100 MB, 700 MB, 1 GB, 2 GB, 4 GB FAT32, 4,7 GB DVD nebo vlastní velikost, např. 250M),
+  - **metoda šifrování** u ZIP: AES-256 (doporučeno) nebo ZipCrypto pro staré rozbalovače; u 7z volba šifrování názvů souborů,
+  - kontrola shody hesel přímo při psaní, volitelně přesun zdrojových souborů do Koše po úspěšném zabalení.
+  Poslední volby (formát, komprese, metoda) si dialog pamatuje, heslo nikdy.
+- **Oprava:** tažení myší přenášelo jen soubor pod kurzorem. Když táhneš označený soubor, přenesou se teď všechny označené (do druhého panelu i do Finderu).
+- Zkrácený název souboru (i přípona, velikost, datum) se po najetí myší ukáže celý v bublině – jen když se do sloupce nevejde. V náhledech obrázků se celý název ukáže vždy.
+
 ## 0.13.0
 
 - **Nový barevný profil Neon Orchid** – křiklavá růžovofialová: sytě fialová navigace a horní lišta s výrazným přechodem fialová → neonově růžová, světlé pracovní plochy (seznam souborů, náhledy, příkazový řádek) s tmavým textem. Funguje se stylem Výrazný i Jemný.

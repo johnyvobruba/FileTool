@@ -267,7 +267,7 @@ final class SpaceLensModel: ObservableObject {
                 let isDir = (try? u.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])).map { $0.isDirectory == true && $0.isPackage != true } ?? false
                 return LensNode(url: u, name: FileManager.default.displayName(atPath: u.path), size: 0, isDir: isDir)
             }
-            await MainActor.run { if self.current == dir { self.nodes = list } }
+            await MainActor.run { [list] in if self.current == dir { self.nodes = list } }
             for i in list.indices {
                 if c.value { return }
                 list[i].size = CleanFS.size(list[i].url, cancel: c)

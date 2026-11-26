@@ -376,6 +376,21 @@ struct FileTable: NSViewRepresentable {
             return tab.items[row].url as NSURL
         }
 
+        /// Tažení označeného souboru vezme všechny označené (mezerník / Insert), ne jen řádek pod myší.
+        /// Tabulka má jednořádkový výběr, proto se při začátku tažení přepíše obsah schránky tažení.
+        func tableView(_ tableView: NSTableView, draggingSession session: NSDraggingSession,
+                       willBeginAt screenPoint: NSPoint, forRowIndexes rowIndexes: IndexSet) {
+            guard let row = rowIndexes.first, tab.items.indices.contains(row),
+                  tab.marked.contains(tab.items[row].url) else { return }
+            let urls = tab.items.filter { tab.marked.contains($0.url) && !$0.isParent && $0.archiveInner == nil && $0.remotePath == nil }
+                .map { $0.url as NSURL }
+            guard urls.count > 1 else { return }
+            let pb = session.draggingPasteboard
+            pb.clearContents()
+            pb.writeObjects(urls)
+            session.draggingFormation = .pile
+        }
+
         func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int,
                        proposedDropOperation op: NSTableView.DropOperation) -> NSDragOperation {
             tableView.setDropRow(-1, dropOperation: .on)                 // vždy do aktuální složky panelu
@@ -407,6 +422,8 @@ final class FileCell: NSTableCellView {
         super.init(frame: .zero)
         identifier = id
         label.lineBreakMode = .byTruncatingMiddle
+        // zkrácený text (název, cesta…) se po najetí myší ukáže celý v bublině – jen když se nevejde
+        label.allowsExpansionToolTips = true
         label.translatesAutoresizingMaskIntoConstraints = false
         img.translatesAutoresizingMaskIntoConstraints = false
         addSubview(img); addSubview(label)

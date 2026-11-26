@@ -60,23 +60,29 @@ enum AskPass {
     }
 
     private static func ask(title: String, text: String, secure: Bool, save: Bool) -> (value: String, save: Bool)? {
+        // askpass běží celý na hlavním vlákně (synchronně z main) → dialog smí sahat na @MainActor prvky
+        MainActor.assumeIsolated { askOnMain(title: title, text: text, secure: secure, save: save) }
+    }
+
+    @MainActor
+    private static func askOnMain(title: String, text: String, secure: Bool, save: Bool) -> (value: String, save: Bool)? {
         let a = NSAlert()
         a.messageText = title
         a.informativeText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let f: NSTextField = secure ? NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-                                    : NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        let pf = secure ? RevealPasswordField(width: 280) : nil        // heslo s okem pro zobrazení
+        let tf = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         let box = NSStackView()
         box.orientation = .vertical; box.alignment = .leading; box.spacing = 8
-        box.addArrangedSubview(f)
+        box.addArrangedSubview(pf ?? tf)
         let chk = NSButton(checkboxWithTitle: "Uložit do Klíčenky", target: nil, action: nil)
         if save { box.addArrangedSubview(chk) }
         box.frame = NSRect(x: 0, y: 0, width: 280, height: save ? 54 : 24)
         a.accessoryView = box
         a.addButton(withTitle: "OK"); a.addButton(withTitle: "Zrušit")
-        a.window.initialFirstResponder = f
+        a.window.initialFirstResponder = pf?.secure ?? tf
         a.window.level = .floating
         guard a.runModal() == .alertFirstButtonReturn else { return nil }
-        return (f.stringValue, save && chk.state == .on)
+        return (pf?.stringValue ?? tf.stringValue, save && chk.state == .on)
     }
 
     static func promptHost(_ prompt: String) -> String? {

@@ -189,7 +189,7 @@ final class SyncModel: ObservableObject {
                 default: break
                 }
             }
-            await MainActor.run {
+            await MainActor.run { [errs] in
                 Commander.shared.finish(op, errs)
                 self.running = false
                 self.compare()

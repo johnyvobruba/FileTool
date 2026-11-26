@@ -231,46 +231,25 @@ final class Commander: ObservableObject {
         return ["Nesprávné heslo."]
     }
 
-    /// ⌥⌘5 (Alt+F5 v TC): zabalit označené do druhého panelu – ZIP, tar.gz nebo tar.xz.
+    /// ⌥⌘5 (Alt+F5 v TC): zabalit označené – dialog s volbami (cíl, formát, komprese, části, heslo, šifrování).
     func pack() {
-        guard tab.archive == nil, other.tab.archive == nil, tab.remote == nil, other.tab.remote == nil else { alert("Balení", "Zabalit jde z běžné složky do běžné složky."); return }
+        guard tab.archive == nil, tab.remote == nil else { alert("Balení", "Zabalit jde z běžné (místní) složky."); return }
         let items = tab.selection
         guard !items.isEmpty else { NSSound.beep(); return }
         let defName = items.count == 1 ? items[0].baseName : tab.dir.lastPathComponent
-        let a = NSAlert()
-        a.messageText = "Zabalit \(items.count == 1 ? "„\(items[0].name)“" : "\(items.count) položek") do \(other.tab.dir.path)"
-        let name = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24)); name.stringValue = defName
-        let fmt = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 110, height: 24), pullsDown: false)
-        fmt.addItems(withTitles: SevenZip.path != nil ? ["zip", "7z", "tar.gz", "tar.xz"] : ["zip", "tar.gz", "tar.xz"])
-        let row = NSStackView(views: [name, fmt]); row.orientation = .horizontal; row.spacing = 8
-        // heslo (nepovinné) – ZIP / 7z
-        let pw1 = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24)); pw1.placeholderString = "Heslo (nepovinné)"
-        let pw2 = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24)); pw2.placeholderString = "Heslo znovu"
-        let pwRow = NSStackView(views: [pw1, pw2]); pwRow.orientation = .horizontal; pwRow.spacing = 8
-        let note = NSTextField(wrappingLabelWithString: SevenZip.path != nil
-            ? "S heslem: ZIP i 7z šifrováno AES-256 (7-Zip). 7z šifruje i názvy souborů. tar heslo neumí."
-            : "S heslem jen ZIP přes macOS zip – slabé šifrování ZipCrypto. Pro AES-256: brew install sevenzip.")
-        note.font = .systemFont(ofSize: 11); note.textColor = .secondaryLabelColor
-        note.preferredMaxLayoutWidth = 420
-        let col = NSStackView(views: [row, pwRow, note]); col.orientation = .vertical; col.alignment = .leading; col.spacing = 8
-        col.frame = NSRect(x: 0, y: 0, width: 420, height: 96)
-        a.accessoryView = col
-        a.addButton(withTitle: "Zabalit"); a.addButton(withTitle: "Zrušit")
-        a.window.initialFirstResponder = name
-        guard a.runModal() == .alertFirstButtonReturn else { return }
-        let n = name.stringValue.trimmingCharacters(in: .whitespaces)
-        let format = fmt.titleOfSelectedItem ?? "zip"
-        guard !n.isEmpty, !n.contains("/") else { return }
-        let password = pw1.stringValue
-        if !password.isEmpty {
-            guard password == pw2.stringValue else { alert("Hesla se neshodují", "Zabalení zrušeno."); return }
-            guard format == "zip" || format == "7z" else { alert("\(format) heslo neumí", "Pro šifrování zvol ZIP nebo 7z."); return }
-        }
-        let out = other.tab.dir.appendingPathComponent(n + "." + format)
-        if FileManager.default.fileExists(atPath: out.path) {
-            let c = NSAlert(); c.messageText = "„\(out.lastPathComponent)“ už existuje"; c.addButton(withTitle: "Přepsat"); c.addButton(withTitle: "Zrušit")
+        // výchozí cíl: druhý panel, je-li místní; jinak stejná složka
+        let defDest = (other.tab.archive == nil && other.tab.remote == nil) ? other.tab.dir : tab.dir
+        let dlg = PackDialog()
+        guard let picked = dlg.run(title: "Zabalit \(items.count == 1 ? "„\(items[0].name)“" : "\(items.count) položek")",
+                                   defName: defName, defDest: defDest) else { return }
+        let (out, o) = picked
+        let existing = ArchiveIO.parts(of: out)
+        if !existing.isEmpty {
+            let c = NSAlert(); c.messageText = "„\(out.lastPathComponent)“ už existuje"
+            c.informativeText = existing.count > 1 ? "Přepíše se i \(existing.count - 1) dalších částí." : ""
+            c.addButton(withTitle: "Přepsat"); c.addButton(withTitle: "Zrušit")
             guard c.runModal() == .alertFirstButtonReturn else { return }
-            try? FileManager.default.removeItem(at: out)
+            for u in existing { try? FileManager.default.removeItem(at: u) }
         }
         let op = FileOperation(kind: .copy, title: "Balení do \(out.lastPathComponent)")
         start(op)
@@ -278,9 +257,14 @@ final class Commander: ObservableObject {
         Task.detached(priority: .userInitiated) {
             var errs: [String] = []
             do {
-                if password.isEmpty { try ArchiveIO.create(out, from: dir, names: names, format: format, cancel: cancel) }
-                else { try ArchiveIO.createEncrypted(out, from: dir, names: names, format: format, password: password, cancel: cancel) }
-            } catch { errs.append(error.localizedDescription) }
+                try ArchiveIO.pack(out, from: dir, names: names, o: o, cancel: cancel)
+                if o.trashSources {
+                    for n in names {
+                        do { try FileManager.default.trashItem(at: dir.appendingPathComponent(n), resultingItemURL: nil) }
+                        catch let err { errs.append("\(n): do Koše nešlo přesunout – \(err.localizedDescription)") }
+                    }
+                }
+            } catch let err { errs.append(err.localizedDescription) }
             await MainActor.run { [errs] in self.finish(op, errs) }
         }
     }
