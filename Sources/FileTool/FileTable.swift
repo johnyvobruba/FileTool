@@ -9,6 +9,29 @@ final class FileTableNSView: NSTableView, QLPreviewPanelDataSource, QLPreviewPan
     var keyHandler: ((NSEvent) -> Bool)?
     var onFocus: (() -> Void)?
     var previewURLs: [URL] = []
+    /// Tažení: pro tažený soubor vrátí všechny soubory k tažení (označené), jinak nil = jen ten jeden.
+    var markedForDrag: ((URL) -> [URL]?)?
+
+    /// Tabulka má jednořádkový výběr, takže by táhla jen řádek pod myší. Když je tažený soubor označený
+    /// (mezerník / Insert), přidají se do tažení i ostatní označené – každý jako vlastní položka (Finder i druhý panel).
+    override func beginDraggingSession(with items: [NSDraggingItem], event: NSEvent, source: NSDraggingSource) -> NSDraggingSession {
+        guard let first = items.first, let url = (first.item as? NSURL) as URL?,
+              let all = markedForDrag?(url), all.count > 1 else {
+            return super.beginDraggingSession(with: items, event: event, source: source)
+        }
+        var list = items
+        var offset: CGFloat = 0
+        for u in all where u.standardizedFileURL != url.standardizedFileURL {
+            let it = NSDraggingItem(pasteboardWriter: u as NSURL)
+            offset += 4
+            let frame = first.draggingFrame.offsetBy(dx: offset, dy: -offset)
+            it.setDraggingFrame(frame, contents: NSWorkspace.shared.icon(forFile: u.path))
+            list.append(it)
+        }
+        let session = super.beginDraggingSession(with: list, event: event, source: source)
+        session.draggingFormation = .pile
+        return session
+    }
 
     override var acceptsFirstResponder: Bool { true }
     override func becomeFirstResponder() -> Bool {
@@ -87,6 +110,7 @@ struct FileTable: NSViewRepresentable {
         t.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
         t.menu = context.coordinator.contextMenu()
         t.keyHandler = { [weak coord = context.coordinator] e in coord?.key(e) ?? false }
+        t.markedForDrag = { [weak coord = context.coordinator] u in coord?.markedURLs(including: u) }
         t.onFocus = { [weak coord = context.coordinator] in coord.map { c in c.commander.activate(c.side) } }
         context.coordinator.table = t
         commander.tables[side] = t
@@ -371,43 +395,81 @@ struct FileTable: NSViewRepresentable {
 
         // MARK: Drag & drop (Finder i druhý panel)
 
+        /// Je-li `u` označený, vrátí všechny označené soubory panelu (v pořadí seznamu); jinak nil.
+        func markedURLs(including u: URL) -> [URL]? {
+            guard tab.archive == nil, tab.remote == nil, tab.marked.contains(u) else { return nil }
+            return tab.items.filter { tab.marked.contains($0.url) && !$0.isParent }.map(\.url)
+        }
+
         func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
             guard tab.items.indices.contains(row), !tab.items[row].isParent, tab.items[row].archiveInner == nil, tab.items[row].remotePath == nil else { return nil }
             return tab.items[row].url as NSURL
         }
 
-        /// Tažení označeného souboru vezme všechny označené (mezerník / Insert), ne jen řádek pod myší.
-        /// Tabulka má jednořádkový výběr, proto se při začátku tažení přepíše obsah schránky tažení.
+        /// Pojistka, kdyby tabulka nepoužila beginDraggingSession: doplní do schránky tažení všechny označené.
         func tableView(_ tableView: NSTableView, draggingSession session: NSDraggingSession,
                        willBeginAt screenPoint: NSPoint, forRowIndexes rowIndexes: IndexSet) {
             guard let row = rowIndexes.first, tab.items.indices.contains(row),
-                  tab.marked.contains(tab.items[row].url) else { return }
-            let urls = tab.items.filter { tab.marked.contains($0.url) && !$0.isParent && $0.archiveInner == nil && $0.remotePath == nil }
-                .map { $0.url as NSURL }
-            guard urls.count > 1 else { return }
+                  let all = markedURLs(including: tab.items[row].url), all.count > 1 else { return }
             let pb = session.draggingPasteboard
+            guard (pb.pasteboardItems?.count ?? 0) < all.count else { return }    // už obsahuje všechny
             pb.clearContents()
-            pb.writeObjects(urls)
-            session.draggingFormation = .pile
+            pb.writeObjects(all.map { $0 as NSURL })
+        }
+
+        /// Cíl puštění: složka pod myší (i [..] = nadřazená), jinak aktuální složka panelu.
+        private func dropTarget(row: Int, op: NSTableView.DropOperation) -> (row: Int?, dir: URL) {
+            if op == .on, tab.archive == nil, tab.remote == nil, tab.items.indices.contains(row) {
+                let it = tab.items[row]
+                if it.isParent { return (row, tab.dir.deletingLastPathComponent()) }
+                if it.isDir { return (row, it.url) }
+            }
+            return (nil, tab.dir)
+        }
+
+        private func draggedURLs(_ info: NSDraggingInfo) -> [URL] {
+            info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        }
+
+        /// Jako Finder: na stejném disku přesun, na jiný disk kopie; ⌘ = vždy přesun, ⌥ = vždy kopie.
+        private func operation(_ info: NSDraggingInfo, to dir: URL) -> NSDragOperation {
+            let f = NSEvent.modifierFlags
+            if f.contains(.command) { return .move }
+            if f.contains(.option) { return .copy }
+            guard tab.archive == nil, tab.remote == nil, let src = draggedURLs(info).first else { return .copy }
+            let key: Set<URLResourceKey> = [.volumeIdentifierKey]
+            guard let a = try? src.resourceValues(forKeys: key).volumeIdentifier as? NSObject,
+                  let b = try? dir.resourceValues(forKeys: key).volumeIdentifier as? NSObject else { return .copy }
+            return a.isEqual(b) ? .move : .copy
+        }
+
+        /// Položky, které by do cíle nepatřily: už v něm jsou, nebo je cíl uvnitř tažené složky.
+        private func movable(_ urls: [URL], to dir: URL) -> [URL] {
+            let d = dir.standardizedFileURL.path
+            return urls.filter { u in
+                let p = u.standardizedFileURL.path
+                return u.deletingLastPathComponent().standardizedFileURL.path != d && p != d && !d.hasPrefix(p + "/")
+            }
         }
 
         func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int,
                        proposedDropOperation op: NSTableView.DropOperation) -> NSDragOperation {
-            tableView.setDropRow(-1, dropOperation: .on)                 // vždy do aktuální složky panelu
-            return NSEvent.modifierFlags.contains(.command) ? .move : .copy
+            let t = dropTarget(row: row, op: op)
+            tableView.setDropRow(t.row ?? -1, dropOperation: .on)
+            if tab.archive == nil, tab.remote == nil, movable(draggedURLs(info), to: t.dir).isEmpty { return [] }
+            return operation(info, to: t.dir)
         }
 
         func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int,
                        dropOperation: NSTableView.DropOperation) -> Bool {
-            guard let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self],
-                                                                 options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty else { return false }
+            let urls = draggedURLs(info)
+            guard !urls.isEmpty else { return false }
             if tab.archive != nil { commander.dropIntoArchive(tab, urls); return true }
-            let move = NSEvent.modifierFlags.contains(.command)
-            if tab.remote != nil { commander.upload(urls, to: tab, move: move); return true }
-            let dir = tab.dir
-            let srcs = urls.filter { $0.deletingLastPathComponent().standardizedFileURL != dir.standardizedFileURL }
+            if tab.remote != nil { commander.upload(urls, to: tab, move: NSEvent.modifierFlags.contains(.command)); return true }
+            let t = dropTarget(row: row, op: dropOperation)
+            let srcs = movable(urls, to: t.dir)
             guard !srcs.isEmpty else { return false }
-            commander.dropTransfer(srcs, to: dir, move: move)
+            commander.dropTransfer(srcs, to: t.dir, move: operation(info, to: t.dir) == .move)
             return true
         }
     }
