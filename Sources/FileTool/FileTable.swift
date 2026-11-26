@@ -422,8 +422,9 @@ final class FileCell: NSTableCellView {
         super.init(frame: .zero)
         identifier = id
         label.lineBreakMode = .byTruncatingMiddle
-        // zkrácený text (název, cesta…) se po najetí myší ukáže celý v bublině – jen když se nevejde
-        label.allowsExpansionToolTips = true
+        // Systémová „rozbalovací“ bublina kreslí text barvou buňky na tmavém podkladu (u světlé plochy nečitelné),
+        // proto vlastní bublina: běžný tooltip s celým textem, jen když se text nevejde (viz updateTip).
+        label.allowsExpansionToolTips = false
         label.translatesAutoresizingMaskIntoConstraints = false
         img.translatesAutoresizingMaskIntoConstraints = false
         addSubview(img); addSubview(label)
@@ -452,6 +453,19 @@ final class FileCell: NSTableCellView {
         img.isHidden = icon == nil
         leadingWithIcon.isActive = icon != nil
         leadingPlain.isActive = icon == nil
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        updateTip()
+    }
+
+    /// Celý text v bublině jen tehdy, když je ve sloupci zkrácený (…).
+    private func updateTip() {
+        let need = (label.cell?.cellSize.width ?? 0) > label.bounds.width + 0.5
+        let tip = need ? label.stringValue : nil
+        if label.toolTip != tip { label.toolTip = tip }
     }
 }
 

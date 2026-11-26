@@ -3,6 +3,11 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 1.0.0
+
+- ok
+- ok
+
 ## 0.14.0
 
 - **Zobrazení hesla při psaní** – u polí pro heslo je ikona oka: kliknutím se heslo ukáže jako text a zpět. Výchozí stav je vždy skrytý; v dialogu se dvěma poli (heslo + kontrola) přepíná oko obě najednou. Platí pro heslo k archivu, k serveru (SFTP/SCP/FTP), dotaz SSH (askpass) i balení.
