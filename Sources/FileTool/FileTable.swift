@@ -199,6 +199,8 @@ struct FileTable: NSViewRepresentable {
             let id = col.identifier
             let cell = (tableView.makeView(withIdentifier: id, owner: self) as? FileCell) ?? FileCell(id: id)
             let marked = tab.marked.contains(item.url)
+            // obrázek při tažení: u označeného souboru „balíček“ s počtem označených
+            cell.dragCount = id.rawValue == "name" && marked ? tab.items.filter { tab.marked.contains($0.url) && !$0.isParent }.count : 0
             let color: NSColor = marked ? UI.NS.marked
                 : item.isParent || item.isDir ? UI.NS.dir
                 : item.isHidden ? UI.NS.hidden
@@ -521,6 +523,43 @@ final class FileCell: NSTableCellView {
     override func layout() {
         super.layout()
         updateTip()
+    }
+
+    /// Počet označených souborů, které se táhnou s tímto řádkem (> 1 = obrázek balíčku s číslem).
+    var dragCount = 0
+
+    /// Obrázek při tažení: za ikonou dvě posunuté kopie (balíček) a vpravo nahoře odznak s počtem souborů.
+    override var draggingImageComponents: [NSDraggingImageComponent] {
+        let base = super.draggingImageComponents
+        guard dragCount > 1, let icon = img.image, !img.isHidden else { return base }
+        let f = img.frame
+        var stack: [NSDraggingImageComponent] = []
+        for k in [2, 1] {
+            let c = NSDraggingImageComponent(key: NSDraggingItem.ImageComponentKey("stack\(k)"))
+            c.contents = icon
+            c.frame = f.offsetBy(dx: CGFloat(k) * 3, dy: (isFlipped ? -1 : 1) * CGFloat(k) * 3)
+            stack.append(c)
+        }
+        let b = Self.badge(dragCount)
+        let badge = NSDraggingImageComponent(key: NSDraggingItem.ImageComponentKey("badge"))
+        badge.contents = b
+        let top = isFlipped ? f.minY - b.size.height / 2 : f.maxY - b.size.height / 2
+        badge.frame = NSRect(x: f.maxX - 4, y: top, width: b.size.width, height: b.size.height)
+        return stack + base + [badge]
+    }
+
+    /// Červený odznak s číslem (jako Finder při tažení více souborů).
+    static func badge(_ n: Int) -> NSImage {
+        let text = NSAttributedString(string: "\(n)", attributes: [
+            .font: NSFont.systemFont(ofSize: 11, weight: .bold), .foregroundColor: NSColor.white])
+        let ts = text.size()
+        let size = NSSize(width: max(18, ceil(ts.width) + 10), height: 18)
+        return NSImage(size: size, flipped: false) { r in
+            NSColor.systemRed.setFill()
+            NSBezierPath(roundedRect: r, xRadius: r.height / 2, yRadius: r.height / 2).fill()
+            text.draw(at: NSPoint(x: (r.width - ts.width) / 2, y: (r.height - ts.height) / 2))
+            return true
+        }
     }
 
     /// Celý text v bublině jen tehdy, když je ve sloupci zkrácený (…).

@@ -3,10 +3,17 @@
 Dvoupanelový správce souborů pro macOS ve stylu Total Commanderu, vzhledem i barevnými profily jako SSHTool.
 Sekce `## x.y.z` se automaticky použije jako poznámky k vydání na GitHubu.
 
+## 1.0.2
+
+- aaaaaa
+- aaaa
+- a
+- a
+
 ## 1.0.1
 
 - **Tažení myší (oprava a vylepšení):**
-  - když táhneš označený soubor (mezerník / Insert), přenesou se všechny označené – do druhého panelu i do Finderu (při tažení je vidět balíček souborů),
+  - když táhneš označený soubor (mezerník / Insert), přenesou se všechny označené – do druhého panelu i do Finderu; pod kurzorem je balíček ikon s červeným odznakem počtu souborů (jako ve Finderu),
   - pustit jde i **na složku v seznamu** (zvýrazní se) nebo na [..] – soubory se přesunou do ní, i v rámci stejného panelu,
   - přesun / kopie jako ve Finderu: na stejném disku přesun, na jiný disk kopie; s ⌘ vždy přesun, s ⌥ vždy kopie.
 
